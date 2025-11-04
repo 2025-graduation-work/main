@@ -100,18 +100,18 @@ export default function Setup() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100">
-      <div className="max-w-3xl mx-auto p-6 min-h-screen flex flex-col">
+      <div className="max-w-3xl mx-auto px-4 py-3 h-screen flex flex-col">
         {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-gray-600">
+        <div className="mb-3 flex-shrink-0">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-xs text-gray-600">
               ステップ {currentStep} / {TOTAL_STEPS}
             </span>
-            <span className="text-sm text-gray-600">
+            <span className="text-xs text-gray-600">
               {Math.round((currentStep / TOTAL_STEPS) * 100)}%
             </span>
           </div>
-          <div className="h-2 bg-white/50 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 transition-all duration-300"
               style={{ width: `${(currentStep / TOTAL_STEPS) * 100}%` }}
@@ -125,7 +125,7 @@ export default function Setup() {
         </div>
 
         {/* Navigation Buttons */}
-        <div className="flex justify-between items-center pt-8">
+        <div className="flex justify-between items-center pt-3 flex-shrink-0">
           <Button
             variant="ghost"
             onClick={handleBack}
