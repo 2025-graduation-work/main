@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Destination } from '../pages/Setup';
+import { Destination } from '@/app/lib/types';
 
 interface DestinationDetailModalProps {
   destination: Destination;

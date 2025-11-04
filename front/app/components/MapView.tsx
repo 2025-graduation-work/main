@@ -4,7 +4,7 @@ import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { toast } from 'sonner';
-import { Destination } from '../pages/Setup';
+import { Destination } from '@/app/lib/types';
 
 interface MapViewProps {
   destinations: Destination[];

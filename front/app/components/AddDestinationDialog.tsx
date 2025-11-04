@@ -7,7 +7,7 @@ import { Label } from '@/app/components/ui/label';
 import { Badge } from '@/app/components/ui/badge';
 import { Card } from '@/app/components/ui/card';
 import { toast } from 'sonner';
-import { Destination } from '../pages/Setup';
+import { Destination } from '@/app/lib/types';
 
 interface AddDestinationDialogProps {
   open: boolean;

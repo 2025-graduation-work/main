@@ -5,7 +5,7 @@ import { Label } from '@/app/components/ui/label';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { useState } from 'react';
-import { Destination } from '../../pages/Setup';
+import { Destination } from '@/app/lib/types';
 
 interface DestinationStepProps {
   destination: Omit<Destination, 'id' | 'createdAt'> | null;

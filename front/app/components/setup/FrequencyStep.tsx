@@ -3,7 +3,7 @@ import { Card } from '@/app/components/ui/card';
 import { Label } from '@/app/components/ui/label';
 import { Input } from '@/app/components/ui/input';
 import { Badge } from '@/app/components/ui/badge';
-import { Destination } from '../../pages/Setup';
+import { Destination } from '@/app/lib/types';
 
 interface FrequencyStepProps {
   destination: Omit<Destination, 'id' | 'createdAt'> | null;

@@ -1,65 +1,79 @@
-import Image from "next/image";
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { Button } from '@/app/components/ui/button';
+import { MapPin, Sparkles, Calendar } from 'lucide-react';
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // すでにセットアップ済みの場合はホームへ
+    if (typeof window !== 'undefined') {
+      const userData = sessionStorage.getItem('userData');
+      if (userData) {
+        router.push('/home');
+      }
+    }
+  }, [router]);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 flex items-center justify-center p-6">
+      <div className="max-w-2xl w-full text-center">
+        {/* Hero Image */}
+        <div className="mb-8 relative">
+          <div className="w-32 h-32 mx-auto bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-2xl animate-pulse">
+            <MapPin className="w-16 h-16 text-white" />
+          </div>
+          <div className="absolute top-0 right-1/4 animate-bounce">
+            <Sparkles className="w-8 h-8 text-yellow-400" />
+          </div>
+        </div>
+
+        {/* Title & Description */}
+        <div className="mb-12">
+          <h1 className="text-gray-900 mb-4">
+            「どこかへ行く体験」を<br />習慣にする
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-gray-700 max-w-lg mx-auto leading-relaxed">
+            毎日の生活に新しい発見を。
+            <br />
+            決めた場所へ、決めた頻度で訪れることで、
+            <br />
+            小さな冒険を習慣化しましょう。
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Features */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 max-w-3xl mx-auto">
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg">
+            <MapPin className="w-10 h-10 text-indigo-600 mx-auto mb-3" />
+            <h3 className="text-gray-900 mb-2">目的地を設定</h3>
+            <p className="text-sm text-gray-600">行きたい場所を自由に登録</p>
+          </div>
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg">
+            <Calendar className="w-10 h-10 text-purple-600 mx-auto mb-3" />
+            <h3 className="text-gray-900 mb-2">頻度を決める</h3>
+            <p className="text-sm text-gray-600">自分のペースで続けられる</p>
+          </div>
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg">
+            <Sparkles className="w-10 h-10 text-pink-600 mx-auto mb-3" />
+            <h3 className="text-gray-900 mb-2">体験を重ねる</h3>
+            <p className="text-sm text-gray-600">小さな冒険を積み重ねる</p>
+          </div>
         </div>
-      </main>
+
+        {/* CTA Button */}
+        <Button
+          size="lg"
+          onClick={() => router.push('/setup')}
+          className="px-12 py-6 text-lg bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 shadow-xl"
+        >
+          はじめる
+        </Button>
+      </div>
     </div>
   );
 }
+
