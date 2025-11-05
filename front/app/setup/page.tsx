@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAtom } from 'jotai';
+import { userDataAtom } from '@/app/lib/store';
 import { OnboardingStep } from '@/app/components/setup/OnboardingStep';
 import { NicknameStep } from '@/app/components/setup/NicknameStep';
 import { DestinationStep } from '@/app/components/setup/DestinationStep';
@@ -9,25 +11,23 @@ import { FrequencyStep } from '@/app/components/setup/FrequencyStep';
 import { CompletionStep } from '@/app/components/setup/CompletionStep';
 import { Button } from '@/app/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { UserData, Destination } from '@/app/lib/types';
+import { Destination } from '@/app/lib/types';
 
 const TOTAL_STEPS = 5;
 
 export default function Setup() {
   const router = useRouter();
+  const [userData, setUserData] = useAtom(userDataAtom);
   const [currentStep, setCurrentStep] = useState(1);
   const [nickname, setNickname] = useState('');
   const [firstDestination, setFirstDestination] = useState<Omit<Destination, 'id' | 'createdAt'> | null>(null);
 
   useEffect(() => {
     // すでにセットアップ済みの場合はホームへ
-    if (typeof window !== 'undefined') {
-      const userData = sessionStorage.getItem('userData');
-      if (userData) {
-        router.push('/home');
-      }
+    if (userData) {
+      router.push('/home');
     }
-  }, [router]);
+  }, [userData, router]);
 
   const canGoNext = () => {
     switch (currentStep) {
@@ -49,16 +49,15 @@ export default function Setup() {
 
   const handleNext = () => {
     if (currentStep === TOTAL_STEPS) {
-      // Save data and navigate to home
-      const userData: UserData = {
+      // Save data using Jotai atom
+      setUserData({
         nickname,
         destinations: firstDestination ? [{
           ...firstDestination,
           id: crypto.randomUUID(),
           createdAt: new Date().toISOString(),
         }] : [],
-      };
-      sessionStorage.setItem('userData', JSON.stringify(userData));
+      });
       router.push('/home');
     } else {
       setCurrentStep(currentStep + 1);
