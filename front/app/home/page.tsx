@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAtom } from 'jotai';
+import { userDataAtom } from '@/app/lib/store';
 import { Plus, Edit2, List, Map } from 'lucide-react';
-import { UserData, Destination } from '@/app/lib/types';
+import { Destination } from '@/app/lib/types';
 import { DestinationCard } from '@/app/components/DestinationCard';
 import { DestinationDetailModal } from '@/app/components/DestinationDetailModal';
 import { AddDestinationDialog } from '@/app/components/AddDestinationDialog';
@@ -18,13 +20,7 @@ import { toast } from 'sonner';
 
 export default function Home() {
   const router = useRouter();
-  const [userData, setUserData] = useState<UserData | null>(() => {
-    if (typeof window !== 'undefined') {
-      const data = sessionStorage.getItem('userData');
-      return data ? JSON.parse(data) : null;
-    }
-    return null;
-  });
+  const [userData, setUserData] = useAtom(userDataAtom);
   const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [showNicknameDialog, setShowNicknameDialog] = useState(false);
@@ -32,15 +28,10 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && !userData) {
+    if (!userData) {
       router.push('/setup');
     }
   }, [router, userData]);
-
-  const saveUserData = (data: UserData) => {
-    sessionStorage.setItem('userData', JSON.stringify(data));
-    setUserData(data);
-  };
 
   const addDestination = (destination: Omit<Destination, 'id' | 'createdAt'>) => {
     if (!userData) return;
@@ -51,7 +42,7 @@ export default function Home() {
       createdAt: new Date().toISOString(),
     };
 
-    saveUserData({
+    setUserData({
       ...userData,
       destinations: [...userData.destinations, newDestination],
     });
@@ -60,7 +51,7 @@ export default function Home() {
   const updateDestination = (id: string, updates: Partial<Destination>) => {
     if (!userData) return;
 
-    saveUserData({
+    setUserData({
       ...userData,
       destinations: userData.destinations.map(dest =>
         dest.id === id ? { ...dest, ...updates } : dest
@@ -71,7 +62,7 @@ export default function Home() {
   const deleteDestination = (id: string) => {
     if (!userData) return;
 
-    saveUserData({
+    setUserData({
       ...userData,
       destinations: userData.destinations.filter(dest => dest.id !== id),
     });
@@ -86,7 +77,7 @@ export default function Home() {
       return;
     }
 
-    saveUserData({
+    setUserData({
       ...userData,
       nickname: newNickname.trim(),
     });
