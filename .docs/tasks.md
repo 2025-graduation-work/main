@@ -1,103 +1,41 @@
-# Issue #1: Jotaiを導入して全体の状態管理をリファクタリングする
+# チェックイン機能の実装
 
-**担当**: @yotu  
-**優先度**: 🔴 最高  
-**ブランチ**: `feat/jotai`  
-**Issue**: https://github.com/2025-graduation-work/main/issues/1
+**目的**: 目的地に到着したときにチェックインできる機能を追加する
 
 ---
 
 ## 実装タスク
 
-### Phase 1: Jotai環境構築
+### Phase 1: 型定義の追加
 
-#### 1.1 パッケージインストール
-- [x] `jotai` パッケージのインストール
-  ```bash
-  cd front
-  npm install jotai --legacy-peer-deps
-  ```
-- [x] インストール確認: `package.json` に `jotai` が追加されていることを確認
+#### 1.1 CheckIn型の追加
+- `front/app/lib/types.ts` に `CheckIn` インターフェースを追加
+- 必要なフィールド: `id`, `destinationId`, `timestamp`, `latitude`, `longitude`
 
 ---
 
-#### 1.2 store.ts 作成
-- [x] `front/app/lib/store.ts` ファイルを新規作成
-- [x] `userDataAtom` の実装
-  - `atomWithStorage` を使用
-  - sessionStorage連携の設定
-  - 型定義は既存の `UserData | null`
+### Phase 2: Destination型の拡張
 
-**実装内容**:
-```typescript
-// front/app/lib/store.ts
-import { atomWithStorage } from 'jotai/utils';
-import { UserData } from './types';
-
-export const userDataAtom = atomWithStorage<UserData | null>(
-  'userData',
-  null,
-  {
-    getItem: (key) => {
-      if (typeof window === 'undefined') return null;
-      const value = sessionStorage.getItem(key);
-      return value ? JSON.parse(value) : null;
-    },
-    setItem: (key, value) => {
-      if (typeof window === 'undefined') return;
-      sessionStorage.setItem(key, JSON.stringify(value));
-    },
-    removeItem: (key) => {
-      if (typeof window === 'undefined') return;
-      sessionStorage.removeItem(key);
-    },
-  }
-);
-```
-
-**注意点**:
-- SSR対応: `typeof window === 'undefined'` チェックを追加
-- 既存の型定義 (`UserData`) をそのまま使用
+#### 2.1 チェックイン履歴の追加
+- `Destination` インターフェースに `checkIns` フィールドを追加
+- 型は `CheckIn[]`
 
 ---
 
-#### 1.3 Provider設定（不要の可能性あり）
-- [ ] Jotai v2では基本的にProviderは不要
-- [ ] `app/layout.tsx` の確認のみ行う
-- [ ] 必要に応じて Provider 追加（通常は不要）
+### Phase 3: チェックインボタンの追加
 
-**確認内容**:
-- Jotai v2以降はデフォルトでグローバルストアを使用
-- 特別な設定が必要な場合のみ Provider を追加
+#### 3.1 DestinationDetailModalの更新
+- チェックインボタンを追加
+- 位置情報取得の実装
+- チェックイン処理の実装
 
 ---
 
-### Phase 2: セットアップページのJotai対応
+### Phase 4: チェックイン履歴表示
 
-**対象ファイル**: `front/app/setup/page.tsx`
-
-#### 2.1 import追加
-- [x] `useAtom` のインポート
-- [x] `userDataAtom` のインポート
-
-```typescript
-import { useAtom } from 'jotai';
-import { userDataAtom } from '@/app/lib/store';
-```
-
----
-
-#### 2.2 状態管理の置き換え
-- [x] L18-27: `useState` を削除
-- [x] `useAtom(userDataAtom)` に置き換え
-
-**Before** (L18-27):
-```typescript
-const [userData, setUserData] = useState<UserData | null>(() => {
-  if (typeof window !== 'undefined') {
-    const data = sessionStorage.getItem('userData');
-    return data ? JSON.parse(data) : null;
-  }
+#### 4.1 履歴表示コンポーネント
+- DestinationDetailModal内にチェックイン履歴を表示
+- 日時とチェックイン回数を表示
   return null;
 });
 ```

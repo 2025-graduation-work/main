@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MapPin, Calendar, Clock, Edit2, Trash2, X } from 'lucide-react';
+import { MapPin, Calendar, Clock, Edit2, Trash2, Check } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Destination } from '@/app/lib/types';
+import { Destination, CheckIn } from '@/app/lib/types';
 
 interface DestinationDetailModalProps {
   destination: Destination;
@@ -45,9 +45,46 @@ export function DestinationDetailModal({
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [editedFrequency, setEditedFrequency] = useState(destination.frequency);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
 
   const formatDays = () => {
     return destination.frequency.days.map(d => DAYS[d].label).join('・');
+  };
+
+  const handleCheckIn = async () => {
+    setIsCheckingIn(true);
+    try {
+      if (!navigator.geolocation) {
+        toast.error('位置情報がサポートされていません');
+        return;
+      }
+
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        });
+      });
+
+      const newCheckIn: CheckIn = {
+        id: crypto.randomUUID(),
+        destinationId: destination.id,
+        timestamp: new Date().toISOString(),
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      };
+
+      const updatedCheckIns = [...(destination.checkIns || []), newCheckIn];
+      onUpdate({ checkIns: updatedCheckIns });
+      
+      toast.success('チェックインしました！');
+    } catch (error) {
+      console.error('チェックインエラー:', error);
+      toast.error('位置情報の取得に失敗しました');
+    } finally {
+      setIsCheckingIn(false);
+    }
   };
 
   const toggleDay = (day: number) => {
@@ -109,6 +146,17 @@ export function DestinationDetailModal({
           </DialogHeader>
 
           <div className="space-y-6 py-4">
+            {/* Check-in Button */}
+            <Button
+              onClick={handleCheckIn}
+              disabled={isCheckingIn}
+              className="w-full bg-green-600 hover:bg-green-700 text-white"
+              size="lg"
+            >
+              <Check className="w-5 h-5 mr-2" />
+              {isCheckingIn ? 'チェックイン中...' : 'チェックイン'}
+            </Button>
+
             {/* Destination Info */}
             <Card className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200">
               <div className="flex items-start gap-3">
@@ -223,6 +271,51 @@ export function DestinationDetailModal({
                     保存
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {/* Check-in History */}
+            {destination.checkIns && destination.checkIns.length > 0 && (
+              <div className="space-y-3">
+                <Label>チェックイン履歴</Label>
+                <Card className="p-4 bg-white border-gray-200">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm text-gray-600">総チェックイン回数</span>
+                      <Badge variant="outline" className="gap-1">
+                        <Check className="w-3 h-3" />
+                        {destination.checkIns.length}回
+                      </Badge>
+                    </div>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {destination.checkIns
+                        .slice()
+                        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                        .slice(0, 5)
+                        .map((checkIn) => (
+                          <div
+                            key={checkIn.id}
+                            className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg"
+                          >
+                            <span className="text-sm text-gray-700">
+                              {new Date(checkIn.timestamp).toLocaleString('ja-JP', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                            <Check className="w-4 h-4 text-green-600" />
+                          </div>
+                        ))}
+                    </div>
+                    {destination.checkIns.length > 5 && (
+                      <p className="text-xs text-gray-500 text-center pt-2">
+                        最新5件を表示
+                      </p>
+                    )}
+                  </div>
+                </Card>
               </div>
             )}
           </div>
