@@ -1,16 +1,19 @@
 import { MapPin, Calendar, Clock, Check } from 'lucide-react';
 import { Card } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
-import { Destination } from '@/app/lib/types';
+import { Button } from '@/app/components/ui/button';
+import { Destination, CheckIn } from '@/app/lib/types';
+import { toast } from 'sonner';
 
 interface DestinationCardProps {
   destination: Destination;
   onClick: () => void;
+  onCheckIn?: (checkIn: CheckIn) => void;
 }
 
 const DAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
-export function DestinationCard({ destination, onClick }: DestinationCardProps) {
+export function DestinationCard({ destination, onClick, onCheckIn }: DestinationCardProps) {
   const formatDays = () => {
     return destination.frequency.days.map(d => DAYS[d]).join('・');
   };
@@ -32,6 +35,41 @@ export function DestinationCard({ destination, onClick }: DestinationCardProps) 
   // 状態の決定
   const isCheckInAvailable = isScheduledToday && !hasCheckedInToday;
   const isCheckedIn = hasCheckedInToday;
+
+  const handleCheckIn = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // カードのonClickを発火させない
+    
+    if (!onCheckIn) return;
+
+    try {
+      if (!navigator.geolocation) {
+        toast.error('位置情報がサポートされていません');
+        return;
+      }
+
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        });
+      });
+
+      const newCheckIn: CheckIn = {
+        id: crypto.randomUUID(),
+        destinationId: destination.id,
+        timestamp: new Date().toISOString(),
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      };
+
+      onCheckIn(newCheckIn);
+      toast.success('チェックインしました！');
+    } catch (error) {
+      console.error('チェックインエラー:', error);
+      toast.error('位置情報の取得に失敗しました');
+    }
+  };
 
   return (
     <Card
@@ -72,7 +110,7 @@ export function DestinationCard({ destination, onClick }: DestinationCardProps) 
           </div>
           <p className="text-sm text-gray-600 mb-3 truncate">{destination.address}</p>
           
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             {destination.frequency.days.length > 0 && (
               <Badge variant="outline" className="gap-1">
                 <Calendar className="w-3 h-3" />
@@ -84,6 +122,18 @@ export function DestinationCard({ destination, onClick }: DestinationCardProps) 
               {destination.frequency.time}
             </Badge>
           </div>
+
+          {/* チェックインボタン */}
+          {isCheckInAvailable && onCheckIn && (
+            <Button
+              onClick={handleCheckIn}
+              size="sm"
+              className="mt-3 w-full bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Check className="w-4 h-4 mr-1" />
+              チェックインする
+            </Button>
+          )}
         </div>
       </div>
     </Card>

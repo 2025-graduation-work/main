@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAtom } from 'jotai';
 import { userDataAtom } from '@/app/lib/store';
 import { Plus, Edit2, List, Map } from 'lucide-react';
-import { Destination } from '@/app/lib/types';
+import { Destination, CheckIn } from '@/app/lib/types';
 import { DestinationCard } from '@/app/components/DestinationCard';
 import { DestinationDetailModal } from '@/app/components/DestinationDetailModal';
 import { AddDestinationDialog } from '@/app/components/AddDestinationDialog';
@@ -78,6 +78,19 @@ export default function Home() {
       ...userData,
       destinations: userData.destinations.map(dest =>
         dest.id === id ? { ...dest, ...updates } : dest
+      ),
+    });
+  };
+
+  const handleCheckIn = (destinationId: string, checkIn: CheckIn) => {
+    if (!userData) return;
+
+    setUserData({
+      ...userData,
+      destinations: userData.destinations.map(dest =>
+        dest.id === destinationId
+          ? { ...dest, checkIns: [...(dest.checkIns || []), checkIn] }
+          : dest
       ),
     });
   };
@@ -180,6 +193,7 @@ export default function Home() {
                     key={destination.id}
                     destination={destination}
                     onClick={() => setSelectedDestination(destination)}
+                    onCheckIn={(checkIn) => handleCheckIn(destination.id, checkIn)}
                   />
                 ))}
               </div>
