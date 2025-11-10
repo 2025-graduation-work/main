@@ -26,12 +26,35 @@ export default function Home() {
   const [showNicknameDialog, setShowNicknameDialog] = useState(false);
   const [newNickname, setNewNickname] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [showDebugModal, setShowDebugModal] = useState(false);
 
   useEffect(() => {
     if (!userData) {
       router.push('/setup');
     }
   }, [router, userData]);
+
+  // デバッグモーダルのキーボードショートカット
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'd' || e.key === 'D') {
+        setShowDebugModal(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleResetStorage = () => {
+    // sessionStorageとlocalStorageをクリア
+    sessionStorage.clear();
+    localStorage.clear();
+    setUserData(null);
+    toast.success('ストレージをリセットしました');
+    setShowDebugModal(false);
+    router.push('/setup');
+  };
 
   const addDestination = (destination: Omit<Destination, 'id' | 'createdAt'>) => {
     if (!userData) return;
@@ -241,6 +264,51 @@ export default function Home() {
                 className="bg-indigo-600 hover:bg-indigo-700"
               >
                 変更
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Debug Modal */}
+        <Dialog open={showDebugModal} onOpenChange={setShowDebugModal}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>🐛 デバッグメニュー</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">
+                  開発用のデバッグツールです。ストレージをリセットして初期状態に戻すことができます。
+                </p>
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ 警告: すべてのデータが削除されます
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">現在のストレージ情報</h4>
+                <div className="p-3 bg-gray-50 rounded-lg space-y-1 text-xs font-mono">
+                  <p>ニックネーム: {userData?.nickname || 'なし'}</p>
+                  <p>目的地数: {userData?.destinations.length || 0}</p>
+                  <p>総チェックイン数: {
+                    userData?.destinations.reduce((sum, d) => sum + (d.checkIns?.length || 0), 0) || 0
+                  }</p>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowDebugModal(false)}
+              >
+                閉じる
+              </Button>
+              <Button
+                onClick={handleResetStorage}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                ストレージをリセット
               </Button>
             </DialogFooter>
           </DialogContent>
