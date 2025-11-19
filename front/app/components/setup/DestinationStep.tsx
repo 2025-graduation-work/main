@@ -16,7 +16,7 @@ interface DestinationStepProps {
 }
 
 interface SuggestionItem {
-  // we'll store the full suggestion object returned by the new Places library
+  // 新しい Places ライブラリから返される候補オブジェクト全体を保持
   suggestion: any;
   description: string;
   placeId?: string;
@@ -42,10 +42,10 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
   const markerRef = useRef<any>(null);
   const sessionTokenRef = useRef<any>(null);
   const debounceRef = useRef<number | null>(null);
-  const placesLibraryRef = useRef<any>(null); // will hold imported places classes
+  const placesLibraryRef = useRef<any>(null); 
 
-  // 1) Script onLoad=> setMapsLoaded(true)  (Script is loaded without libraries=places)
-  // 2) Once mapsLoaded, import places library via google.maps.importLibrary("places")
+  // 1) Script の onLoad で setMapsLoaded(true) を呼ぶ（Script は libraries=places なしで読み込む）
+  // 2) mapsLoaded になったら google.maps.importLibrary('places') で Places ライブラリをインポートする
   useEffect(() => {
     if (!mapsLoaded) return;
 
@@ -57,7 +57,7 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
       }
 
       try {
-        // import places library (new)
+        // Places ライブラリをインポート（新しい API）
         const lib: google.maps.PlacesLibrary = await window.google.maps.importLibrary('places');
         if (!mounted) return;
         placesLibraryRef.current = lib;
@@ -72,18 +72,17 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
     };
   }, [mapsLoaded]);
 
-  // initialize map (since you chose to use map)
+  // マップを初期化（マップ表示を使用するため）
   useEffect(() => {
     if (!mapsLoaded || !mapRef.current || googleMapRef.current) return;
-    // create map (minimal)
+    // マップを作成（最小限の設定）
     googleMapRef.current = new window.google.maps.Map(mapRef.current, {
       center: { lat: 35.681236, lng: 139.767125 },
       zoom: 14,
-      // mapId: 'YOUR_MAP_ID_IF_ANY', // optional: use if you created a MapID
     });
   }, [mapsLoaded]);
 
-  // handle user typing -> call new autocomplete suggestions
+  // ユーザー入力を処理 -> 新しい Autocomplete 提案を呼び出す
   useEffect(() => {
     if (!placesLibLoaded) return;
     if (!searchQuery) {
@@ -102,18 +101,18 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
         setError(null);
         const { AutocompleteSessionToken, AutocompleteSuggestion } = placesLibraryRef.current;
 
-        // create a new session token if none exists for this typing session
+        // このタイピングセッション用のセッショントークンがなければ新しく作成
         if (!sessionTokenRef.current) {
           sessionTokenRef.current = new AutocompleteSessionToken();
         }
 
-        // build request (adjust options as needed)
+        // リクエストを作成（必要に応じてオプションを調整）
         const req: any = {
           input: searchQuery,
           sessionToken: sessionTokenRef.current,
         };
 
-        // fetch suggestions (new API)
+        // 提案を取得（新しい API）
         const result = await AutocompleteSuggestion.fetchAutocompleteSuggestions(req);
         const suggestions = result?.suggestions || [];
 
@@ -148,7 +147,7 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, placesLibLoaded]);
 
-  // when user selects a prediction, convert to Place and fetch fields
+  // ユーザーが候補を選択したとき、Place に変換してフィールドを取得
   const selectPrediction = async (item: SuggestionItem) => {
     if (!placesLibLoaded) return;
     setIsSearching(true);
@@ -157,7 +156,7 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
     try {
       const suggestion = item.suggestion;
 
-      // If suggestion has placePrediction with toPlace(), use it
+      // suggestion に placePrediction と toPlace() があればそれを使用
       const placePrediction = suggestion?.placePrediction;
       if (!placePrediction) {
         setError('選択した場所の情報が見つかりません。');
@@ -165,21 +164,21 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
         return;
       }
 
-      // Convert prediction -> Place object
+      // 予測結果を Place オブジェクトに変換
       const placeObj = placePrediction.toPlace();
 
-      // fetch required fields (this ends the session per docs)
+      // 必要なフィールドを取得（ドキュメントによればこの呼び出しでセッションは終了）
       await placeObj.fetchFields({
         fields: ['displayName', 'formattedAddress', 'location'],
       });
 
-      // placeObj now contains the requested fields
+      // placeObj に要求したフィールドが含まれている
       const displayName = placeObj.displayName?.text || placeObj.displayName || item.description;
       const formattedAddress = placeObj.formattedAddress || item.description;
       const lat = placeObj.location?.lat || placeObj.location?.latitude || 0;
       const lng = placeObj.location?.lng || placeObj.location?.longitude || 0;
 
-      // set destination to parent component
+      // 親コンポーネントに destination を設定
       setDestination({
         name: displayName,
         address: formattedAddress,
@@ -188,11 +187,11 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
         frequency: { days: [], time: '10:00' },
       });
 
-      // update UI state
+      // UI の状態を更新
       setSearchQuery(formattedAddress);
       setPredictions([]);
 
-      // show marker on map if map exists
+      // マップが存在する場合はマーカーを表示
       if (googleMapRef.current) {
         const pos = { lat: Number(typeof lat === 'function' ? lat() : lat), lng: Number(typeof lng === 'function' ? lng() : lng) };
         if (markerRef.current) {
@@ -207,7 +206,7 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
         googleMapRef.current.setZoom(15);
       }
 
-      // end the session token (docs: fetchFields ends session). create a fresh token for next session
+      // セッショントークンを終了（fetchFields がセッションを終了するため）。次のセッション用に新しいトークンを作れるようにする
       sessionTokenRef.current = null;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '場所情報の取得に失敗しました。';
@@ -220,12 +219,12 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      {/* Load Maps JS without libraries=places */}
+      {/* libraries=places なしで Maps JS を読み込む */}
       <Script
         src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&v=weekly&language=ja`}
         strategy="lazyOnload"
         onLoad={() => {
-          // safe flag to start importLibrary
+          // importLibrary を開始するための安全フラグ
           setMapsLoaded(true);
         }}
       />
@@ -270,7 +269,7 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
             </div>
           </div>
 
-          {/* Error message */}
+          {/* エラーメッセージ */}
           {error && (
             <div className="p-3 rounded-lg bg-red-50 border border-red-200">
               <p className="text-sm text-red-700">⚠️ {error}</p>
@@ -283,7 +282,7 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
             </div>
           )}
 
-          {/* Loading indicator (no predictions yet) */}
+          {/* ローディング表示（まだ候補なし） */}
           {searchQuery && isSearching && predictions.length === 0 && (
             <div className="p-4 rounded-lg bg-blue-50 border border-blue-200 flex items-center gap-2">
               <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -309,7 +308,7 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
                       <MapPin className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
                         <p className="text-gray-900">{p.description}</p>
-                        <p className="text-sm text-gray-600">{/* no secondary text in this mapping */}</p>
+                        <p className="text-sm text-gray-600">{/* このマッピングには補助テキストなし */}</p>
                       </div>
                       {destination && destination.address === p.description && <Badge className="bg-indigo-600">選択中</Badge>}
                     </div>
@@ -335,7 +334,7 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
         </div>
       </Card>
 
-      {/* Map container (since you wanted a map) */}
+      {/* マップコンテナ（マップ表示を使用するため） */}
       <div className="mt-4 w-full h-64 rounded-lg overflow-hidden border" ref={mapRef} />
 
     </div>
