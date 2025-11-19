@@ -35,6 +35,8 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
   const [isSearching, setIsSearching] = useState(false);
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const [placesLibLoaded, setPlacesLibLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [mapsLoadError, setMapsLoadError] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement | null>(null);
   const googleMapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -97,6 +99,7 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
 
     debounceRef.current = window.setTimeout(async () => {
       try {
+        setError(null);
         const { AutocompleteSessionToken, AutocompleteSuggestion } = placesLibraryRef.current;
 
         // create a new session token if none exists for this typing session
@@ -107,10 +110,6 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
         // build request (adjust options as needed)
         const req: any = {
           input: searchQuery,
-          // optional restrictions / biases:
-          // language: 'ja',
-          // region: 'jp',
-          // locationRestriction: { west: ..., north: ..., east: ..., south: ... },
           sessionToken: sessionTokenRef.current,
         };
 
@@ -120,7 +119,6 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
 
         const mapped: SuggestionItem[] = suggestions.map((s: any) => {
           const pred = s.placePrediction;
-          // description: prefer the display text (if available) or fallback to text snippet
           const description =
             (pred?.description?.text) ||
             (pred?.text?.text) ||
@@ -135,8 +133,10 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
 
         setPredictions(mapped);
       } catch (err) {
-        console.error('fetchAutocompleteSuggestions error', err);
+        const errorMessage = err instanceof Error ? err.message : '検索に失敗しました。もう一度お試しください。';
+        setError(errorMessage);
         setPredictions([]);
+        console.error('fetchAutocompleteSuggestions error', err);
       } finally {
         setIsSearching(false);
       }
@@ -152,15 +152,15 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
   const selectPrediction = async (item: SuggestionItem) => {
     if (!placesLibLoaded) return;
     setIsSearching(true);
+    setError(null);
 
     try {
-      const { AutocompleteSessionToken } = placesLibraryRef.current;
       const suggestion = item.suggestion;
 
       // If suggestion has placePrediction with toPlace(), use it
       const placePrediction = suggestion?.placePrediction;
       if (!placePrediction) {
-        console.error('No placePrediction available on suggestion', suggestion);
+        setError('選択した場所の情報が見つかりません。');
         setIsSearching(false);
         return;
       }
@@ -170,7 +170,7 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
 
       // fetch required fields (this ends the session per docs)
       await placeObj.fetchFields({
-        fields: ['displayName', 'formattedAddress', 'location'], // adjust fields you need
+        fields: ['displayName', 'formattedAddress', 'location'],
       });
 
       // placeObj now contains the requested fields
@@ -210,6 +210,8 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
       // end the session token (docs: fetchFields ends session). create a fresh token for next session
       sessionTokenRef.current = null;
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '場所情報の取得に失敗しました。';
+      setError(errorMessage);
       console.error('selectPrediction error', err);
     } finally {
       setIsSearching(false);
@@ -248,18 +250,51 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && predictions.length && selectPrediction(predictions[0])}
+                disabled={!placesLibLoaded || mapsLoaded === false}
               />
               <Button
                 onClick={() => predictions.length && selectPrediction(predictions[0])}
-                disabled={!searchQuery || isSearching}
+                disabled={!searchQuery || isSearching || !placesLibLoaded}
                 className="gap-2"
               >
-                <Search className="w-4 h-4" />
-                検索
+                {isSearching ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    検索中
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-4 h-4" />
+                    検索
+                  </>
+                )}
               </Button>
             </div>
-            <p className="text-xs text-gray-500">（新API）Place Autocomplete Data API を使用しています</p>
+            <p className="text-xs text-gray-500">
+              {!placesLibLoaded ? 'Google Places を読み込み中...' : '（新API）Place Autocomplete Data API を使用しています'}
+            </p>
           </div>
+
+          {/* Error message */}
+          {error && (
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+              <p className="text-sm text-red-700">⚠️ {error}</p>
+              <button
+                onClick={() => setError(null)}
+                className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
+              >
+                閉じる
+              </button>
+            </div>
+          )}
+
+          {/* Loading indicator (no predictions yet) */}
+          {searchQuery && isSearching && predictions.length === 0 && (
+            <div className="p-4 rounded-lg bg-blue-50 border border-blue-200 flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-blue-700">検索中...</p>
+            </div>
+          )}
 
           {searchQuery && predictions.length > 0 && (
             <div className="space-y-2">
