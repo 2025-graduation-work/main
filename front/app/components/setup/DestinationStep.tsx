@@ -236,9 +236,7 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
             <MapPin className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-gray-900 mb-2">最初の目的地を設定しましょう</h2>
-          <p className="text-gray-600">Google Places（新API）で場所を検索して選択してください</p>
         </div>
-
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="search">場所を検索</Label>
@@ -270,9 +268,6 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
                 )}
               </Button>
             </div>
-            <p className="text-xs text-gray-500">
-              {!placesLibLoaded ? 'Google Places を読み込み中...' : '（新API）Place Autocomplete Data API を使用しています'}
-            </p>
           </div>
 
           {/* Error message */}
