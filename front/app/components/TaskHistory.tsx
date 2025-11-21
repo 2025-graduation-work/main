@@ -1,7 +1,7 @@
 import { Check, MapPin } from 'lucide-react';
 import { Card } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
-import { Location, TaskCompletion } from '../App';
+import { Location, TaskCompletion } from '@/app/lib/types';
 
 interface TaskHistoryProps {
   locations: Location[];
