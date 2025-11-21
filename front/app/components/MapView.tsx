@@ -203,7 +203,7 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
         </GoogleMap>
 
         {/* Destination Count */}
-        <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg px-4 py-2 border border-gray-200 z-10">
+        <div className="absolute top-3 right-16 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg px-4 py-2 border border-gray-200 z-10">
           <p className="text-sm text-gray-600">
             目的地: <span className="text-gray-900">{destinations.length}</span>件
           </p>
