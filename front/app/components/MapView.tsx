@@ -24,6 +24,7 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
   const [isLoadingPosition, setIsLoadingPosition] = useState(false);
   const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
   const [mapState, setMapState] = useState({ lat: 35.6812, lng: 139.7671, zoom: 12 });
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   // マップの中心とズームを自動計算（destinations に基づいて）
   const calculateMapBounds = useCallback(() => {
@@ -126,7 +127,17 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
           className="gap-2"
         >
           <Navigation className="w-4 h-4" />
-          {isLoadingPosition ? '取得中...' : '現在位置を更新'}
+          {isLoadingPosition ? (
+            <span className="inline-flex items-center gap-2">
+              <svg className="w-4 h-4 text-gray-500 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              </svg>
+              取得中...
+            </span>
+          ) : (
+            '現在位置を更新'
+          )}
         </Button>
       </div>
 
@@ -136,6 +147,8 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
           mapContainerStyle={mapContainerStyle}
           center={{ lat: mapState.lat, lng: mapState.lng }}
           zoom={mapState.zoom}
+          onLoad={() => setMapLoaded(false)}
+          onTilesLoaded={() => setMapLoaded(true)}
           options={{
             gestureHandling: 'greedy',
             zoomControl: true,
@@ -202,6 +215,19 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
           )}
         </GoogleMap>
 
+        {/* Map tiles loading overlay */}
+        {!mapLoaded && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70">
+            <div className="flex items-center gap-3 p-4 rounded-md bg-white/90 shadow">
+              <svg className="w-6 h-6 text-gray-700 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+              <span className="text-sm text-gray-800">マップの描画を読み込み中...</span>
+            </div>
+          </div>
+        )}
+
         {/* Destination Count */}
         <div className="absolute top-3 right-16 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg px-4 py-2 border border-gray-200 z-10">
           <p className="text-sm text-gray-600">
@@ -229,7 +255,13 @@ export function MapView({ destinations, onDestinationClick }: MapViewProps) {
   if (!isLoaded) {
     return (
       <Card className="relative bg-white/80 backdrop-blur-sm overflow-hidden h-[600px] flex items-center justify-center">
-        <p className="text-gray-500">マップを読み込み中...</p>
+        <div className="flex flex-col items-center gap-3">
+          <svg className="w-6 h-6 text-gray-500 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+          <p className="text-gray-500">マップを読み込み中...</p>
+        </div>
       </Card>
     );
   }
