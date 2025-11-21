@@ -177,7 +177,7 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
               icon={{
                 path: window.google.maps.SymbolPath.CIRCLE,
                 scale: 10,
-                fillColor: '#3b82f6',
+                fillColor: '#22c55e', // 緑色
                 fillOpacity: 1,
                 strokeColor: '#fff',
                 strokeWeight: 3,
