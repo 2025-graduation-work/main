@@ -41,7 +41,7 @@ resource "google_cloud_run_service" "default" {
   template {
     spec {
       containers {
-        image = "${var.region}-docker.pkg.dev/${var.project_id}/${var.repository_name}/${var.service_name}:latest"
+        image = "us-docker.pkg.dev/cloudrun/container/hello"
         
         resources {
           limits = {
