@@ -1,6 +1,9 @@
-import { useState } from 'react';
+'use client';
+
+import Script from 'next/script';
+import { useState, useEffect, useRef } from 'react';
 import { MapPin, Search, Calendar, Clock } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/app/components/ui/dialog';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
@@ -25,23 +28,228 @@ const DAYS = [
   { label: '土', value: 6 },
 ];
 
-const mockSearchResults = [
-  { name: '新宿御苑', address: '東京都新宿区内藤町11', lat: 35.6851, lng: 139.7101 },
-  { name: '代々木公園', address: '東京都渋谷区代々木神園町2-1', lat: 35.6719, lng: 139.6960 },
-  { name: '上野公園', address: '東京都台東区上野公園5-20', lat: 35.7148, lng: 139.7743 },
-];
+interface SuggestionItem {
+  suggestion: any;
+  description: string;
+  placeId?: string;
+}
+
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinationDialogProps) {
   const [step, setStep] = useState<'search' | 'frequency'>('search');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPlace, setSelectedPlace] = useState<typeof mockSearchResults[0] | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<{ name: string; address: string; lat: number; lng: number } | null>(null);
   const [frequency, setFrequency] = useState({ days: [] as number[], time: '10:00' });
+  const [predictions, setPredictions] = useState<SuggestionItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [mapsLoaded, setMapsLoaded] = useState(false);
+  const [placesLibLoaded, setPlacesLibLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const sessionTokenRef = useRef<any>(null);
+  const debounceRef = useRef<number | null>(null);
+  const placesLibraryRef = useRef<any>(null);
+  const mapRef = useRef<HTMLDivElement | null>(null);
+  const googleMapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+
+  // Dialog が開いたら Google Maps API の状態をチェック
+  useEffect(() => {
+    if (!open) return;
+
+    let mounted = true;
+    
+    // Google Maps API が既に読み込まれているかチェック
+    const checkAndLoadPlaces = async () => {
+      if (!mounted) return;
+
+      if (window.google?.maps?.importLibrary) {
+        setMapsLoaded(true);
+        
+        try {
+          const lib: google.maps.PlacesLibrary = await window.google.maps.importLibrary('places');
+          if (!mounted) return;
+          placesLibraryRef.current = lib;
+          setPlacesLibLoaded(true);
+
+          // Places ライブラリ読み込み後、マップを初期化
+          if (mapRef.current && !googleMapRef.current) {
+            googleMapRef.current = new window.google.maps.Map(mapRef.current, {
+              center: { lat: 35.681236, lng: 139.767125 },
+              zoom: 14,
+            });
+          }
+        } catch (err) {
+          console.error('importLibrary(places) failed', err);
+        }
+      } else {
+        // API がまだ読み込まれていない場合は少し待って再試行
+        setTimeout(() => checkAndLoadPlaces(), 500);
+      }
+    };
+
+    checkAndLoadPlaces();
+
+    return () => {
+      mounted = false;
+    };
+  }, [open]);
+
+  // マップを初期化（予備）
+  useEffect(() => {
+    if (!mapsLoaded || !mapRef.current || googleMapRef.current) return;
+    googleMapRef.current = new window.google.maps.Map(mapRef.current, {
+      center: { lat: 35.681236, lng: 139.767125 },
+      zoom: 14,
+    });
+  }, [mapsLoaded]);
+
+  // 検索クエリが変更されたら Places API で候補を取得
+  useEffect(() => {
+    if (!placesLibLoaded || !searchQuery) {
+      setPredictions([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    if (debounceRef.current) {
+      window.clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = window.setTimeout(async () => {
+      try {
+        setError(null);
+        const { AutocompleteSessionToken, AutocompleteSuggestion } = placesLibraryRef.current;
+
+        if (!sessionTokenRef.current) {
+          sessionTokenRef.current = new AutocompleteSessionToken();
+        }
+
+        const req: any = {
+          input: searchQuery,
+          sessionToken: sessionTokenRef.current,
+        };
+
+        const result = await AutocompleteSuggestion.fetchAutocompleteSuggestions(req);
+        const suggestions = result?.suggestions || [];
+
+        const mapped: SuggestionItem[] = suggestions.map((s: any) => {
+          const pred = s.placePrediction;
+          const description =
+            pred?.description?.text ||
+            pred?.text?.text ||
+            s?.displayText ||
+            JSON.stringify(pred).slice(0, 80);
+          return {
+            suggestion: s,
+            description,
+            placeId: pred?.placeId || undefined,
+          };
+        });
+
+        setPredictions(mapped);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : '検索に失敗しました。もう一度お試しください。';
+        setError(errorMessage);
+        setPredictions([]);
+        console.error('fetchAutocompleteSuggestions error', err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300) as unknown as number;
+
+    return () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    };
+  }, [searchQuery, placesLibLoaded]);
+
+  // 候補を選択して詳細情報を取得
+  const selectPrediction = async (item: SuggestionItem) => {
+    if (!placesLibLoaded) return;
+    setIsSearching(true);
+    setError(null);
+
+    try {
+      const placePrediction = item.suggestion?.placePrediction;
+      if (!placePrediction) {
+        setError('選択した場所の情報が見つかりません。');
+        setIsSearching(false);
+        return;
+      }
+
+      const placeObj = placePrediction.toPlace();
+      await placeObj.fetchFields({
+        fields: ['displayName', 'formattedAddress', 'location'],
+      });
+
+      const displayName = placeObj.displayName?.text || placeObj.displayName || item.description;
+      const formattedAddress = placeObj.formattedAddress || item.description;
+      const lat = placeObj.location?.lat || placeObj.location?.latitude || 0;
+      const lng = placeObj.location?.lng || placeObj.location?.longitude || 0;
+
+      const latNum = typeof lat === 'function' ? lat() : lat;
+      const lngNum = typeof lng === 'function' ? lng() : lng;
+
+      setSelectedPlace({
+        name: displayName,
+        address: formattedAddress,
+        lat: latNum,
+        lng: lngNum,
+      });
+
+      setSearchQuery(formattedAddress);
+      setPredictions([]);
+
+      // マップにマーカーを表示
+      if (googleMapRef.current) {
+        const pos = { lat: Number(latNum), lng: Number(lngNum) };
+        if (markerRef.current) {
+          markerRef.current.setPosition(pos);
+        } else {
+          markerRef.current = new window.google.maps.Marker({
+            map: googleMapRef.current,
+            position: pos,
+          });
+        }
+        googleMapRef.current.panTo(pos);
+        googleMapRef.current.setZoom(15);
+      }
+
+      sessionTokenRef.current = null;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '場所情報の取得に失敗しました。';
+      setError(errorMessage);
+      console.error('selectPrediction error', err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const resetDialog = () => {
     setStep('search');
     setSearchQuery('');
     setSelectedPlace(null);
     setFrequency({ days: [], time: '10:00' });
+    setPredictions([]);
+    setError(null);
+    
+    // マップとマーカーをクリーンアップ
+    if (markerRef.current) {
+      markerRef.current.setMap(null);
+      markerRef.current = null;
+    }
+    if (googleMapRef.current) {
+      googleMapRef.current = null;
+    }
+    
+    // 状態をリセット
+    setMapsLoaded(false);
+    setPlacesLibLoaded(false);
   };
 
   const handleClose = (open: boolean) => {
@@ -82,12 +290,23 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px]">
+    <>
+      <Script
+        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&v=weekly&language=ja`}
+        strategy="lazyOnload"
+        onLoad={() => setMapsLoaded(true)}
+      />
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>
             {step === 'search' ? '目的地を検索' : '頻度を設定'}
           </DialogTitle>
+          <DialogDescription>
+            {step === 'search' 
+              ? 'Google Maps から場所を検索して目的地を選択してください' 
+              : '選択した目的地への訪問頻度を設定してください'}
+          </DialogDescription>
         </DialogHeader>
 
         {step === 'search' ? (
@@ -101,27 +320,60 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
                   placeholder="例: 新宿御苑"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && predictions.length && selectPrediction(predictions[0])}
+                  disabled={!placesLibLoaded}
                 />
-                <Button className="gap-2">
-                  <Search className="w-4 h-4" />
-                  検索
+                <Button
+                  onClick={() => predictions.length && selectPrediction(predictions[0])}
+                  disabled={!searchQuery || isSearching || !placesLibLoaded}
+                  className="gap-2"
+                >
+                  {isSearching ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      検索中
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4" />
+                      検索
+                    </>
+                  )}
                 </Button>
               </div>
-              <p className="text-xs text-gray-500">
-                ※ 実装時はGoogle Maps Places APIが必要です
-              </p>
             </div>
 
-            {searchQuery && (
+            {/* エラーメッセージ */}
+            {error && (
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                <p className="text-sm text-red-700">⚠️ {error}</p>
+                <button
+                  onClick={() => setError(null)}
+                  className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
+                >
+                  閉じる
+                </button>
+              </div>
+            )}
+
+            {/* ローディング表示 */}
+            {searchQuery && isSearching && predictions.length === 0 && (
+              <div className="p-4 rounded-lg bg-blue-50 border border-blue-200 flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm text-blue-700">検索中...</p>
+              </div>
+            )}
+
+            {searchQuery && predictions.length > 0 && (
               <div className="space-y-2">
                 <Label>検索結果</Label>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {mockSearchResults.map((place, index) => (
+                  {predictions.map((item, index) => (
                     <button
-                      key={index}
-                      onClick={() => setSelectedPlace(place)}
+                      key={item.placeId || index}
+                      onClick={() => selectPrediction(item)}
                       className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                        selectedPlace?.name === place.name
+                        selectedPlace?.address === item.description
                           ? 'border-indigo-500 bg-indigo-50'
                           : 'border-gray-200 bg-white hover:border-indigo-300'
                       }`}
@@ -129,10 +381,9 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
                       <div className="flex items-start gap-3">
                         <MapPin className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
-                          <p className="text-gray-900">{place.name}</p>
-                          <p className="text-sm text-gray-600">{place.address}</p>
+                          <p className="text-gray-900">{item.description}</p>
                         </div>
-                        {selectedPlace?.name === place.name && (
+                        {selectedPlace?.address === item.description && (
                           <Badge className="bg-indigo-600">選択中</Badge>
                         )}
                       </div>
@@ -141,6 +392,9 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
                 </div>
               </div>
             )}
+
+            {/* マップコンテナ */}
+            <div className="w-full h-64 rounded-lg overflow-hidden border" ref={mapRef} />
 
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => handleClose(false)}>
@@ -215,5 +469,6 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
         )}
       </DialogContent>
     </Dialog>
+    </>
   );
 }
