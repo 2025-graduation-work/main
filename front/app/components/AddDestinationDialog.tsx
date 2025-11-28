@@ -108,6 +108,54 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
     });
   }, [mapsLoaded]);
 
+  // ensureMap: マップDOMが消えているケースに備えて短時間ポーリングし、再生成する
+  useEffect(() => {
+    if (step !== 'search') return;
+    if (!mapRef.current) return;
+    let interval: number | null = null;
+
+    const ensure = () => {
+      const mapDiv = mapRef.current?.querySelector('.gm-style');
+      if (googleMapRef.current && mapDiv) {
+        // マップが既に存在し、DOMもある -> nothing
+        return true;
+      }
+      if ((window as any).google?.maps) {
+        // recreate map
+        googleMapRef.current = new window.google.maps.Map(mapRef.current as HTMLDivElement, {
+          center: { lat: 35.681236, lng: 139.767125 },
+          zoom: 14,
+        });
+
+        // reattach marker if selectedPlace exists
+        if (selectedPlace) {
+          const pos = { lat: Number(selectedPlace.lat), lng: Number(selectedPlace.lng) };
+          if (markerRef.current) {
+            markerRef.current.setMap(googleMapRef.current);
+            markerRef.current.setPosition(pos);
+          } else {
+            markerRef.current = new window.google.maps.Marker({ map: googleMapRef.current, position: pos });
+          }
+          googleMapRef.current.panTo(pos);
+          googleMapRef.current.setZoom(15);
+        }
+
+        return true;
+      }
+      return false;
+    };
+
+    if (ensure()) return;
+    interval = window.setInterval(() => {
+      if (ensure() && interval !== null) {
+        clearInterval(interval);
+        interval = null;
+      }
+    }, 200) as unknown as number;
+
+    return () => { if (interval !== null) clearInterval(interval); };
+  }, [step, mapsLoaded, selectedPlace]);
+
   // 検索クエリが変更されたら Places API で候補を取得
   useEffect(() => {
     if (!placesLibLoaded || !searchQuery) {

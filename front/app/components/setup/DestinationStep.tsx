@@ -82,6 +82,48 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
     });
   }, [mapsLoaded]);
 
+  // ensureMap: マップDOMが消えているケースに備えて短時間ポーリングし、再生成する
+  useEffect(() => {
+    if (!mapRef.current) return;
+    let interval: number | null = null;
+
+    const ensure = () => {
+      const mapDiv = mapRef.current?.querySelector('.gm-style');
+      if (googleMapRef.current && mapDiv) return true;
+      if ((window as any).google?.maps) {
+        googleMapRef.current = new window.google.maps.Map(mapRef.current as HTMLDivElement, {
+          center: { lat: 35.681236, lng: 139.767125 },
+          zoom: 14,
+        });
+
+        // 再生成時に destination があればマーカーを再設置
+        if (destination) {
+          const pos = { lat: Number(destination.latitude), lng: Number(destination.longitude) };
+          if (markerRef.current) {
+            markerRef.current.setMap(googleMapRef.current);
+            markerRef.current.setPosition(pos);
+          } else {
+            markerRef.current = new window.google.maps.Marker({ map: googleMapRef.current, position: pos });
+          }
+          googleMapRef.current.panTo(pos);
+          googleMapRef.current.setZoom(15);
+        }
+        return true;
+      }
+      return false;
+    };
+
+    if (ensure()) return;
+    interval = window.setInterval(() => {
+      if (ensure() && interval !== null) {
+        clearInterval(interval);
+        interval = null;
+      }
+    }, 200) as unknown as number;
+
+    return () => { if (interval !== null) clearInterval(interval); };
+  }, [mapsLoaded, destination]);
+
   // ユーザー入力を処理 -> 新しい Autocomplete 提案を呼び出す
   useEffect(() => {
     if (!placesLibLoaded) return;
