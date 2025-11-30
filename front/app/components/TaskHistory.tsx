@@ -1,7 +1,7 @@
 import { Check, MapPin } from 'lucide-react';
 import { Card } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
-import { Location, TaskCompletion } from '../App';
+import { Location, TaskCompletion } from '@/app/lib/types';
 
 interface TaskHistoryProps {
   locations: Location[];
@@ -10,7 +10,7 @@ interface TaskHistoryProps {
 
 export function TaskHistory({ locations, completions }: TaskHistoryProps) {
   // Group completions by date
-  const groupedByDate = completions.reduce((acc, completion) => {
+  const groupedByDate = completions.reduce((acc, completion: TaskCompletion) => {
     if (!acc[completion.date]) {
       acc[completion.date] = [];
     }
@@ -72,8 +72,8 @@ export function TaskHistory({ locations, completions }: TaskHistoryProps) {
           </div>
           <div className="space-y-2">
             {groupedByDate[date]
-              .sort((a, b) => b.completedAt.localeCompare(a.completedAt))
-              .map((completion, index) => (
+              .sort((a: TaskCompletion, b: TaskCompletion) => b.completedAt.localeCompare(a.completedAt))
+              .map((completion: TaskCompletion, index: number) => (
                 <Card key={index} className="p-4 bg-white/80 backdrop-blur-sm border-gray-200">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">

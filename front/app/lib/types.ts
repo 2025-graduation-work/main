@@ -18,3 +18,19 @@ export interface Frequency {
   days: number[]; // 0-6 (日-土)
   time: string; // HH:MM
 }
+
+export interface Location {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  radius: number;
+  createdAt?: string;
+}
+
+export interface TaskCompletion {
+  locationId: string;
+  completedAt: string; 
+  date: string; 
+}
