@@ -50,6 +50,7 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const [placesLibLoaded, setPlacesLibLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
   const sessionTokenRef = useRef<any>(null);
   const debounceRef = useRef<number | null>(null);
   const placesLibraryRef = useRef<any>(null);
@@ -82,6 +83,7 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
               center: { lat: 35.681236, lng: 139.767125 },
               zoom: 14,
             });
+                setIsMapReady(true);
           }
         } catch (err) {
           console.error('importLibrary(places) failed', err);
@@ -106,6 +108,7 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
       center: { lat: 35.681236, lng: 139.767125 },
       zoom: 14,
     });
+    setIsMapReady(true);
   }, [mapsLoaded]);
 
   // ensureMap: マップDOMが消えているケースに備えて短時間ポーリングし、再生成する
@@ -126,6 +129,7 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
           center: { lat: 35.681236, lng: 139.767125 },
           zoom: 14,
         });
+          setIsMapReady(true);
 
         // reattach marker if selectedPlace exists
         if (selectedPlace) {
@@ -298,6 +302,7 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
     // 状態をリセット
     setMapsLoaded(false);
     setPlacesLibLoaded(false);
+    setIsMapReady(false);
   };
 
   const handleClose = (open: boolean) => {
@@ -442,7 +447,15 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
             )}
 
             {/* マップコンテナ */}
-            <div className="w-full h-64 rounded-lg overflow-hidden border" ref={mapRef} />
+            <div className="relative">
+              <div className="w-full h-64 rounded-lg overflow-hidden border" ref={mapRef} />
+              {!isMapReady && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/70">
+                  <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+                  <p className="mt-2 text-sm text-gray-700">マップを読み込み中…</p>
+                </div>
+              )}
+            </div>
 
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => handleClose(false)}>
