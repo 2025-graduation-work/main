@@ -1,8 +1,11 @@
+"use client";
+
 import { useState } from 'react';
-import { MapPin, Calendar, Clock, Edit2, Trash2, X } from 'lucide-react';
+import { MapPin, Calendar, Clock, Edit2, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
+import EmbeddedMap from '@/app/components/EmbeddedMap';
 import { Button } from '@/app/components/ui/button';
-import { Badge } from '@/app/components/ui/badge';
+// Badge removed (not used in this component)
 import { Card } from '@/app/components/ui/card';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
@@ -125,13 +128,13 @@ export function DestinationDetailModal({
             {/* Google Map Preview */}
             <div className="space-y-2">
               <Label>地図</Label>
-              <div className="w-full h-48 bg-gray-200 rounded-lg flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <MapPin className="w-8 h-8 mx-auto mb-2" />
-                  <p className="text-sm">Google Maps統合</p>
-                  <p className="text-xs">実装時にはGoogle Maps APIが必要です</p>
-                </div>
-              </div>
+              <EmbeddedMap
+                lat={Number(destination.latitude)}
+                lng={Number(destination.longitude)}
+                height="h-56"
+                zoom={15}
+                showCurrent={true}
+              />
               <Button
                 variant="outline"
                 size="sm"
