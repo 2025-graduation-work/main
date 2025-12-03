@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import Script from 'next/script';
+import { loadGoogleMaps } from '@/app/lib/mapsLoader';
 import { Search, MapPin } from 'lucide-react';
 import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
@@ -31,7 +31,7 @@ declare global {
 
 export default function PlaceSearchInput({ value, onChange, onSelect, placeholder = '場所を検索', disabled = false }: Props) {
   const [internalValue, setInternalValue] = useState(value ?? '');
-  const [mapsLoaded, setMapsLoaded] = useState(false);
+  const [mapsLoaded] = useState(false);
   const [placesLibLoaded, setPlacesLibLoaded] = useState(false);
   const [predictions, setPredictions] = useState<Array<{ description: string; placeId?: string; suggestion?: any }>>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -50,37 +50,34 @@ export default function PlaceSearchInput({ value, onChange, onSelect, placeholde
 
   // Try to import the new places library after maps script load; otherwise fall back
   useEffect(() => {
-    if (!mapsLoaded) return;
-
     let mounted = true;
-    (async () => {
-      try {
+    loadGoogleMaps({ libraries: ['places'], language: 'ja' })
+      .then(() => {
+        if (!mounted) return;
+        // Prefer importLibrary when available
         if (window.google?.maps?.importLibrary) {
-          const lib = await window.google.maps.importLibrary('places');
-          if (!mounted) return;
-          placesLibraryRef.current = lib;
-          setPlacesLibLoaded(true);
+          window.google.maps.importLibrary('places').then((lib: any) => {
+            if (!mounted) return;
+            placesLibraryRef.current = lib;
+            setPlacesLibLoaded(true);
+          }).catch((e: any) => console.error('importLibrary(places) failed', e));
           return;
         }
 
-        // Legacy: if places loaded via libraries=places, expose parts via google.maps.places
         if (window.google?.maps?.places) {
           autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
-          // PlacesService requires an HTMLDivElement; create a dummy element if needed
           const div = document.createElement('div');
           placesServiceRef.current = new window.google.maps.places.PlacesService(div);
           setPlacesLibLoaded(true);
-          return;
         }
-
-        // If neither available, keep placesLibLoaded false and let search show error
-      } catch (err) {
-        console.error('PlaceSearchInput importLibrary error', err);
-      }
-    })();
+      })
+      .catch((err) => {
+        console.error('loadGoogleMaps failed', err);
+        setError('Maps の読み込みに失敗しました');
+      });
 
     return () => { mounted = false; };
-  }, [mapsLoaded]);
+  }, []);
 
   // Debounced search
   useEffect(() => {
@@ -211,11 +208,6 @@ export default function PlaceSearchInput({ value, onChange, onSelect, placeholde
 
   return (
     <div className="w-full">
-      <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&v=weekly&language=ja&libraries=places`}
-        strategy="lazyOnload"
-        onLoad={() => setMapsLoaded(true)}
-      />
 
       <div className="relative">
         <div className="flex gap-2">

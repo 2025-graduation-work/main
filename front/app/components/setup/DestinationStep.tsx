@@ -1,6 +1,6 @@
 'use client';
 
-import Script from 'next/script';
+import { loadGoogleMaps } from '@/app/lib/mapsLoader';
 import { MapPin, Search } from 'lucide-react';
 import { Card } from '@/app/components/ui/card';
 import { Input } from '@/app/components/ui/input';
@@ -33,7 +33,7 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
   const [searchQuery, setSearchQuery] = useState('');
   const [predictions, setPredictions] = useState<SuggestionItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [mapsLoaded, setMapsLoaded] = useState(false);
+  const [mapsLoaded] = useState(false);
   const [placesLibLoaded, setPlacesLibLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mapsLoadError, setMapsLoadError] = useState<string | null>(null);
@@ -47,30 +47,31 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
   // 1) Script の onLoad で setMapsLoaded(true) を呼ぶ（Script は libraries=places なしで読み込む）
   // 2) mapsLoaded になったら google.maps.importLibrary('places') で Places ライブラリをインポートする
   useEffect(() => {
-    if (!mapsLoaded) return;
-
     let mounted = true;
-    (async () => {
-      if (!window.google || !window.google.maps || !window.google.maps.importLibrary) {
-        console.error('google.maps.importLibrary is not available');
-        return;
-      }
-
-      try {
-        // Places ライブラリをインポート（新しい API）
-        const lib: google.maps.PlacesLibrary = await window.google.maps.importLibrary('places');
+    loadGoogleMaps({ language: 'ja' })
+      .then(() => {
         if (!mounted) return;
-        placesLibraryRef.current = lib;
-        setPlacesLibLoaded(true);
-      } catch (err) {
-        console.error('importLibrary(places) failed', err);
-      }
-    })();
+        if (!window.google || !window.google.maps || !window.google.maps.importLibrary) {
+          console.error('google.maps.importLibrary is not available');
+          return;
+        }
 
-    return () => {
-      mounted = false;
-    };
-  }, [mapsLoaded]);
+        // import places
+        window.google.maps.importLibrary('places')
+          .then((lib: any) => {
+            if (!mounted) return;
+            placesLibraryRef.current = lib;
+            setPlacesLibLoaded(true);
+          })
+          .catch((err: any) => console.error('importLibrary(places) failed', err));
+      })
+      .catch((err) => {
+        console.error('loadGoogleMaps failed', err);
+        setMapsLoadError('Maps の読み込みに失敗しました');
+      });
+
+    return () => { mounted = false; };
+  }, []);
 
   // マップを初期化（マップ表示を使用するため）
   useEffect(() => {
@@ -262,14 +263,7 @@ export function DestinationStep({ destination, setDestination }: DestinationStep
   return (
     <div className="w-full max-w-2xl mx-auto">
       {/* libraries=places なしで Maps JS を読み込む */}
-      <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&v=weekly&language=ja`}
-        strategy="lazyOnload"
-        onLoad={() => {
-          // importLibrary を開始するための安全フラグ
-          setMapsLoaded(true);
-        }}
-      />
+      {/* Maps loader is handled centrally via loadGoogleMaps */}
 
       <Card className="p-8 bg-white/80 backdrop-blur-sm">
         <div className="text-center mb-8">

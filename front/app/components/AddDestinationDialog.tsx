@@ -1,6 +1,6 @@
-'use client';
+ 'use client';
 
-import Script from 'next/script';
+import { loadGoogleMaps } from '@/app/lib/mapsLoader';
 import { useState, useEffect, useRef } from 'react';
 import { MapPin, Search, Calendar, Clock } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/app/components/ui/dialog';
@@ -64,33 +64,48 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
 
     let mounted = true;
     
-    // Google Maps API が既に読み込まれているかチェック
+    // Ensure the maps script is loaded via the centralized loader
     const checkAndLoadPlaces = async () => {
       if (!mounted) return;
+      try {
+        await loadGoogleMaps({ libraries: ['places'], language: 'ja', region: 'JP' });
+      } catch (err) {
+        console.error('loadGoogleMaps failed', err);
+        return;
+      }
 
-      if (window.google?.maps?.importLibrary) {
-        setMapsLoaded(true);
-        
-        try {
-          const lib: google.maps.PlacesLibrary = await window.google.maps.importLibrary('places');
+      if (!mounted) return;
+      try {
+        if (window.google?.maps?.importLibrary) {
+          const lib: any = await window.google.maps.importLibrary('places');
           if (!mounted) return;
           placesLibraryRef.current = lib;
           setPlacesLibLoaded(true);
 
-          // Places ライブラリ読み込み後、マップを初期化
           if (mapRef.current && !googleMapRef.current) {
             googleMapRef.current = new window.google.maps.Map(mapRef.current, {
               center: { lat: 35.681236, lng: 139.767125 },
               zoom: 14,
             });
-                setIsMapReady(true);
+            setIsMapReady(true);
           }
-        } catch (err) {
-          console.error('importLibrary(places) failed', err);
+          return;
         }
-      } else {
-        // API がまだ読み込まれていない場合は少し待って再試行
-        setTimeout(() => checkAndLoadPlaces(), 500);
+
+        if (window.google?.maps?.places) {
+          placesLibraryRef.current = window.google.maps.places;
+          setPlacesLibLoaded(true);
+
+          if (mapRef.current && !googleMapRef.current) {
+            googleMapRef.current = new window.google.maps.Map(mapRef.current, {
+              center: { lat: 35.681236, lng: 139.767125 },
+              zoom: 14,
+            });
+            setIsMapReady(true);
+          }
+        }
+      } catch (err) {
+        console.error('importLibrary/places init failed', err);
       }
     };
 
@@ -344,11 +359,7 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
 
   return (
     <>
-      <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&v=weekly&language=ja`}
-        strategy="lazyOnload"
-        onLoad={() => setMapsLoaded(true)}
-      />
+      {/* maps script is loaded centrally via loadGoogleMaps */}
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>

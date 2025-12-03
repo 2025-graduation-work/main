@@ -16,6 +16,9 @@ export default function EmbeddedMap({ lat, lng, height = 'h-48', zoom = 15, show
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey,
+    language: 'ja',
+    region: 'JP',
+    libraries: ['places'],
   });
 
   const center = useMemo(() => ({ lat, lng }), [lat, lng]);
