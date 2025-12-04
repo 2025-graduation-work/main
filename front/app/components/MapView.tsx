@@ -250,9 +250,6 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
 export function MapView({ destinations, onDestinationClick }: MapViewProps) {
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-    language: 'ja',
-    region: 'JP',
-    libraries: ['places'],
   });
 
   if (!isLoaded) {
