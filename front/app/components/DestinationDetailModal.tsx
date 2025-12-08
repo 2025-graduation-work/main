@@ -129,10 +129,23 @@ export function DestinationDetailModal({
             <div className="space-y-2">
               <Label>地図</Label>
               <EmbeddedMap
-                lat={Number(destination.latitude)}
-                lng={Number(destination.longitude)}
-                height="h-56"
+                center={{ lat: Number(destination.latitude), lng: Number(destination.longitude) }}
                 zoom={15}
+                height="h-56"
+                markers={[{
+                  id: destination.id,
+                  lat: Number(destination.latitude),
+                  lng: Number(destination.longitude),
+                  title: destination.name,
+                  icon: {
+                    path: (window as any).google?.maps?.SymbolPath.CIRCLE,
+                    scale: 8,
+                    fillColor: '#6366f1',
+                    fillOpacity: 1,
+                    strokeColor: '#fff',
+                    strokeWeight: 2,
+                  },
+                }]}
                 showCurrent={true}
               />
               <Button

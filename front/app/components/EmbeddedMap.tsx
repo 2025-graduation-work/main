@@ -3,22 +3,43 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useJsApiLoader, GoogleMap, Marker } from '@react-google-maps/api';
 
-interface EmbeddedMapProps {
+export interface MapMarker {
+  id?: string | number;
   lat: number;
   lng: number;
-  height?: string; // tailwind class like 'h-48'
-  zoom?: number;
-  showCurrent?: boolean;
+  title?: string;
+  onClick?: () => void;
+  icon?: any;
 }
 
-export default function EmbeddedMap({ lat, lng, height = 'h-48', zoom = 15, showCurrent = true }: EmbeddedMapProps) {
+interface EmbeddedMapProps {
+  center?: { lat: number; lng: number };
+  zoom?: number;
+  markers?: MapMarker[];
+  height?: string; // tailwind class like 'h-48'
+  showCurrent?: boolean;
+  onLoad?: () => void;
+  onTilesLoaded?: () => void;
+  children?: React.ReactNode;
+}
+
+export default function EmbeddedMap({
+  center = { lat: 35.681236, lng: 139.767125 },
+  zoom = 14,
+  markers = [],
+  height = 'h-48',
+  showCurrent = false,
+  onLoad,
+  onTilesLoaded,
+  children,
+}: EmbeddedMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey,
   });
 
-  const center = useMemo(() => ({ lat, lng }), [lat, lng]);
+  const memoCenter = useMemo(() => ({ lat: center.lat, lng: center.lng }), [center.lat, center.lng]);
   const [currentPos, setCurrentPos] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
@@ -50,16 +71,26 @@ export default function EmbeddedMap({ lat, lng, height = 'h-48', zoom = 15, show
       {isLoaded && (
         <GoogleMap
           mapContainerStyle={{ width: '100%', height: '100%' }}
-          center={center}
+          center={memoCenter}
           zoom={zoom}
+          onLoad={() => onLoad && onLoad()}
+          onTilesLoaded={() => onTilesLoaded && onTilesLoaded()}
           options={{ fullscreenControl: false, streetViewControl: false, mapTypeControl: false }}
         >
-          <Marker position={center} />
+          {markers.map((m) => (
+            <Marker
+              key={m.id ?? `${m.lat}-${m.lng}-${m.title}`}
+              position={{ lat: m.lat, lng: m.lng }}
+              title={m.title}
+              onClick={() => m.onClick && m.onClick()}
+              icon={m.icon}
+            />
+          ))}
+
           {currentPos && (
             <Marker
               position={currentPos}
               icon={
-                // use google symbol if available, otherwise fall back to default
                 (window as any).google && (window as any).google.maps
                   ? {
                       path: (window as any).google.maps.SymbolPath.CIRCLE,
@@ -73,6 +104,7 @@ export default function EmbeddedMap({ lat, lng, height = 'h-48', zoom = 15, show
               }
             />
           )}
+          {children}
         </GoogleMap>
       )}
     </div>

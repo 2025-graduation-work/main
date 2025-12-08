@@ -1,7 +1,8 @@
-'use client';
+"use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { GoogleMap, Marker, InfoWindow, useJsApiLoader } from '@react-google-maps/api';
+import { InfoWindow } from '@react-google-maps/api';
+import EmbeddedMap from '@/app/components/EmbeddedMap';
 import { MapPin, Navigation, Locate } from 'lucide-react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
@@ -142,69 +143,37 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
       </div>
 
       {/* Map Container */}
-      <Card className="relative bg-white/80 backdrop-blur-sm overflow-hidden">
-        <GoogleMap
-          mapContainerStyle={mapContainerStyle}
+      <Card className="relative bg-white/80 backdrop-blur-sm overflow-hidden h-[600px]">
+        <EmbeddedMap
           center={{ lat: mapState.lat, lng: mapState.lng }}
           zoom={mapState.zoom}
+          height="h-[600px]"
+          markers={destinations.map(d => ({
+            id: d.id,
+            lat: d.latitude,
+            lng: d.longitude,
+            title: d.name,
+            onClick: () => {
+              setSelectedDestination(d);
+              onDestinationClick(d);
+            },
+            icon: {
+              path: (window as any).google?.maps?.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: '#6366f1',
+              fillOpacity: 1,
+              strokeColor: '#fff',
+              strokeWeight: 2,
+            },
+          }))}
+          showCurrent={!!currentPosition}
           onLoad={() => setMapLoaded(false)}
           onTilesLoaded={() => setMapLoaded(true)}
-          options={{
-            gestureHandling: 'greedy',
-            zoomControl: true,
-            mapTypeControl: true,
-          }}
         >
-          {/* 目的地のマーカー */}
-          {destinations.map((destination) => (
-            <Marker
-              key={destination.id}
-              position={{
-                lat: destination.latitude,
-                lng: destination.longitude,
-              }}
-              title={destination.name}
-              onClick={() => {
-                setSelectedDestination(destination);
-                onDestinationClick(destination);
-              }}
-              icon={{
-                path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 8,
-                fillColor: '#6366f1',
-                fillOpacity: 1,
-                strokeColor: '#fff',
-                strokeWeight: 2,
-              }}
-            />
-          ))}
-
-          {/* 現在位置のマーカー */}
-          {currentPosition && (
-            <Marker
-              position={{
-                lat: currentPosition.coords.latitude,
-                lng: currentPosition.coords.longitude,
-              }}
-              title="現在位置"
-              icon={{
-                path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 10,
-                fillColor: '#22c55e', // 緑色
-                fillOpacity: 1,
-                strokeColor: '#fff',
-                strokeWeight: 3,
-              }}
-            />
-          )}
-
           {/* 選択された目的地の情報ウィンドウ */}
           {selectedDestination && (
             <InfoWindow
-              position={{
-                lat: selectedDestination.latitude,
-                lng: selectedDestination.longitude,
-              }}
+              position={{ lat: selectedDestination.latitude, lng: selectedDestination.longitude }}
               onCloseClick={() => setSelectedDestination(null)}
             >
               <div className="p-2 bg-white rounded">
@@ -213,7 +182,7 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
               </div>
             </InfoWindow>
           )}
-        </GoogleMap>
+        </EmbeddedMap>
 
         {/* Map tiles loading overlay */}
         {!mapLoaded && (
@@ -248,31 +217,5 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
 }
 
 export function MapView({ destinations, onDestinationClick }: MapViewProps) {
-  const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-  });
-
-  if (!isLoaded) {
-    return (
-      <Card className="relative bg-white/80 backdrop-blur-sm overflow-hidden h-[600px] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <svg className="w-6 h-6 text-gray-500 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-          </svg>
-          <p className="text-gray-500">マップを読み込み中...</p>
-        </div>
-      </Card>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <Card className="relative bg-white/80 backdrop-blur-sm overflow-hidden h-[600px] flex items-center justify-center">
-        <p className="text-red-500">マップの読み込みに失敗しました</p>
-      </Card>
-    );
-  }
-
   return <MapViewContent destinations={destinations} onDestinationClick={onDestinationClick} />;
 }
