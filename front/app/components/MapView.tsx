@@ -94,6 +94,7 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
     }
   };
 
+  
   // マウント時に現在位置を取得（useEffect 外で呼び出す警告を回避）
   useEffect(() => {
     // 現在位置取得を遅延実行
