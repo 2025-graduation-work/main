@@ -40,7 +40,7 @@ export function HistoryHeader({
         </div>
 
         <div className="flex flex-col gap-2 w-full sm:w-auto sm:flex-row sm:space-x-2 sm:flex-shrink-0">
-          <Select value={selectedDestination} onValueChange={(value) => setSelectedDestination(value as any)}>
+          <Select value={selectedDestination} onValueChange={(value) => setSelectedDestination(value)}>
             <SelectTrigger className="w-full sm:w-48">
               <SelectValue placeholder="全ての目的地" />
             </SelectTrigger>

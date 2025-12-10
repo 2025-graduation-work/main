@@ -5,7 +5,6 @@ interface HistoryListProps {
   pageVisits: Visit[];
   filteredVisitsCount: number;
   destinations: Destination[];
-  page: number;
   setPage: React.Dispatch<React.SetStateAction<number>>;
 }
 
@@ -13,7 +12,6 @@ export function HistoryList({
   pageVisits,
   filteredVisitsCount,
   destinations,
-  page,
   setPage,
 }: HistoryListProps) {
   return (

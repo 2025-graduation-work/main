@@ -169,7 +169,6 @@ export function TaskHistory() {
         pageVisits={pageVisits}
         filteredVisitsCount={filteredVisits.length}
         destinations={destinations}
-        page={page}
         setPage={setPage}
       />
 
