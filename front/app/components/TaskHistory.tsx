@@ -12,8 +12,7 @@ import {
   SelectValue,
 } from '@/app/components/ui/select';
 import { useAtomValue } from 'jotai';
-import { visitHistoryAtom, calculateCompletionRate } from '@/app/lib/store';
-import { userDataAtom } from '@/app/lib/store';
+import { visitHistoryAtom, userDataAtom } from '@/app/lib/store';
 import { Visit } from '@/app/lib/types';
 
 type Period = 'week' | 'month' | 'all';
@@ -109,45 +108,14 @@ export function TaskHistory() {
     return count;
   }, [parsedVisits]);
 
-  const perDestinationRates = useMemo(() => {
-    return destinations.map((d) => {
-      const target = d.frequency?.days?.length > 0 ? d.frequency.days.length : 1;
-      const result = calculateCompletionRate(parsedVisits, d.id, target, {
-        period,
-        frequencyDays: d.frequency?.days ?? [],
-        referenceDate: new Date(),
-      });
-      return { id: d.id, name: d.name, ...result };
-    });
-  }, [destinations, parsedVisits, period]);
-
-  const overallRate = useMemo(() => {
-    if (perDestinationRates.length === 0) return 0;
-    if (selectedDestination !== 'all') {
-      const item = perDestinationRates.find((p) => p.id === selectedDestination);
-      return item ? Math.round(item.rate * 10) / 10 : 0;
-    }
-    // Compute overall rate as total completed / total target across destinations
-    const totalCompleted = perDestinationRates.reduce((s, p) => s + (p.completed ?? 0), 0);
-    const totalTarget = perDestinationRates.reduce((s, p) => s + (p.target ?? 0), 0);
-    if (totalTarget <= 0) return 0;
-    const rate = (totalCompleted / totalTarget) * 100;
-    return Math.round(Math.min(rate, 100) * 10) / 10;
-  }, [perDestinationRates, selectedDestination]);
+  
 
   return (
     <div className="w-full">
       <h2 className="text-lg sm:text-xl font-bold mb-3">習慣化の記録</h2>
 
         <section className="mb-4 overflow-hidden">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm sm:text-base">{period === 'week' ? '今週の達成率' : period === 'month' ? '今月の達成率' : '達成率'}: <strong>{overallRate}%</strong></p>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${overallRate}%` }} />
-              </div>
-            </div>
-
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-2 w-full sm:w-auto sm:flex-row sm:space-x-2 sm:flex-shrink-0">
               <Select value={selectedDestination} onValueChange={(value) => setSelectedDestination(value as any)}>
                 <SelectTrigger className="w-full sm:w-48">
@@ -228,17 +196,7 @@ export function TaskHistory() {
         </div>
       </section>
 
-      <section className="mb-6">
-        <h3 className="font-semibold mb-2 text-sm sm:text-base">🔎 目的地ごとの達成率（デバッグ）</h3>
-        <div className="border p-2 sm:p-3 rounded bg-white text-sm">
-          {perDestinationRates.map((p) => (
-            <div key={p.id} className="flex justify-between py-1">
-              <div className="flex-1 truncate">{p.name}</div>
-              <div className="text-right">{p.completed}/{p.target} ({p.rate.toFixed(1)}%)</div>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* 達成率関連の表示は削除 */}
 
       <section>
         <h3 className="font-semibold mb-2 text-sm sm:text-base">📈 統計</h3>
