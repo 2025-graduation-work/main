@@ -1,5 +1,17 @@
 import { atomWithStorage } from 'jotai/utils';
 import { UserData, Visit } from './types';
+import {
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  isWithinInterval,
+  getDaysInMonth,
+  getDay,
+  differenceInCalendarWeeks,
+  min,
+  max,
+} from 'date-fns';
 
 export const userDataAtom = atomWithStorage<UserData | null>(
   'userData',
@@ -42,26 +54,12 @@ export const visitHistoryAtom = atomWithStorage<Visit[]>(
   }
 );
 
-// ヘルパー関数: 特定の目的地の訪問履歴を取得
+// 特定の目的地の訪問履歴を取得
 export const getVisitsByDestination = (visits: Visit[], destinationId: string): Visit[] => {
   return visits.filter((visit) => visit.destinationId === destinationId);
 };
 
-// ヘルパー関数: 達成率を計算（週の目標回数 vs 実際の訪問回数）
-import {
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  endOfMonth,
-  isWithinInterval,
-  getDaysInMonth,
-  getDay,
-  differenceInCalendarWeeks,
-  min,
-  max,
-} from 'date-fns';
-
-// ヘルパー関数: 達成率を計算（週の目標回数 vs 実際の訪問回数）
+// 達成率を計算
 export const calculateCompletionRate = (
   visits: Visit[],
   destinationId: string,
