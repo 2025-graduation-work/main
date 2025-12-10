@@ -1,94 +1,185 @@
-import { Check, MapPin } from 'lucide-react';
-import { Card } from '@/app/components/ui/card';
-import { Badge } from '@/app/components/ui/badge';
-import { Location, TaskCompletion } from '@/app/lib/types';
+import React, { useMemo, useState } from 'react';
+import { useAtomValue } from 'jotai';
+import { visitHistoryAtom, calculateCompletionRate, userDataAtom } from '@/app/lib/store';
+import { Visit } from '@/app/lib/types';
+import {
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  isWithinInterval,
+  startOfDay,
+  subDays,
+  isSameDay,
+} from 'date-fns';
 
-interface TaskHistoryProps {
-  locations: Location[];
-  completions: TaskCompletion[];
-}
+import { HistoryHeader } from './history/HistoryHeader';
+import { HistoryCalendar } from './history/HistoryCalendar';
+import { HistoryList } from './history/HistoryList';
+import { HistoryStats } from './history/HistoryStats';
+import { DestinationDebugStats } from './history/DestinationDebugStats';
 
-export function TaskHistory({ locations, completions }: TaskHistoryProps) {
-  // Group completions by date
-  const groupedByDate = completions.reduce((acc, completion) => {
-    if (!acc[completion.date]) {
-      acc[completion.date] = [];
-    }
-    acc[completion.date].push(completion);
-    return acc;
-  }, {} as Record<string, TaskCompletion[]>);
+type Period = 'week' | 'month' | 'all';
 
-  // Sort dates in descending order
-  const sortedDates = Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a));
+export function TaskHistory() {
+  const visits = useAtomValue(visitHistoryAtom) ?? [];
+  const userData = useAtomValue(userDataAtom);
+  const destinations = userData?.destinations ?? [];
 
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+  const [selectedDestination, setSelectedDestination] = useState<string | 'all'>('all');
+  const [period, setPeriod] = useState<Period>('week');
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
-    const dateOnly = dateString;
-    const todayString = today.toISOString().split('T')[0];
-    const yesterdayString = yesterday.toISOString().split('T')[0];
+  const inPeriod = (date: Date) => {
+    const now = new Date();
+    if (period === 'all') return true;
 
-    if (dateOnly === todayString) {
-      return '今日';
-    } else if (dateOnly === yesterdayString) {
-      return '昨日';
+    let start, end;
+    if (period === 'month') {
+      start = startOfMonth(now);
+      end = endOfMonth(now);
     } else {
-      return `${date.getMonth() + 1}月${date.getDate()}日`;
+      // period === 'week'
+      start = startOfWeek(now);
+      end = endOfWeek(now);
     }
+    return isWithinInterval(date, { start, end });
   };
 
-  const formatTime = (isoString: string): string => {
-    const date = new Date(isoString);
-    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-  };
+  const parsedVisits: Visit[] = useMemo(() => (visits ?? []).map((v) => ({ ...v })), [visits]);
 
-  const getLocationName = (locationId: string): string => {
-    const location = locations.find(loc => loc.id === locationId);
-    return location?.name || '削除された場所';
-  };
+  const filteredVisits = useMemo(() => {
+    let res = parsedVisits;
+    if (selectedDestination !== 'all') res = res.filter((v) => v.destinationId === selectedDestination);
+    if (selectedDate) {
+      res = res.filter((v) => isSameDay(new Date(v.visitedAt), selectedDate));
+    } else {
+      res = res.filter((v) => inPeriod(new Date(v.visitedAt)));
+    }
+    return res.sort((a, b) => new Date(b.visitedAt).getTime() - new Date(a.visitedAt).getTime());
+  }, [parsedVisits, selectedDestination, period, selectedDate]);
 
-  if (completions.length === 0) {
-    return (
-      <Card className="p-12 text-center bg-white/80 backdrop-blur-sm border-gray-200">
-        <Check className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-600">まだ履歴がありません</p>
-        <p className="text-sm text-gray-500 mt-2">場所を追加してチェックインしてみましょう</p>
-      </Card>
-    );
-  }
+  const visitedDates = useMemo(() => {
+    const set = new Map<number, Date>();
+    filteredVisits.forEach((v) => {
+      const d = startOfDay(new Date(v.visitedAt));
+      const key = d.getTime();
+      if (!set.has(key)) set.set(key, d);
+    });
+    return Array.from(set.values());
+  }, [filteredVisits]);
+
+  const pageVisits = useMemo(() => filteredVisits.slice(0, page * pageSize), [filteredVisits, page]);
+
+  const totalVisits = filteredVisits.length;
+
+  const mostVisited = useMemo(() => {
+    const counter: Record<string, number> = {};
+    filteredVisits.forEach((v) => (counter[v.destinationId] = (counter[v.destinationId] || 0) + 1));
+    const entries = Object.entries(counter);
+    if (entries.length === 0) return { destinationId: null as string | null, count: 0 };
+    entries.sort((a, b) => b[1] - a[1]);
+    return { destinationId: entries[0][0], count: entries[0][1] };
+  }, [filteredVisits]);
+
+  const mostVisitedName = destinations.find((d) => d.id === mostVisited.destinationId)?.name ?? '―';
+
+  const streak = useMemo(() => {
+    const uniqueDates = Array.from(new Set(parsedVisits.map((v) => startOfDay(new Date(v.visitedAt)).getTime())))
+      .map((t) => new Date(t))
+      .sort((a, b) => b.getTime() - a.getTime());
+
+    if (uniqueDates.length === 0) return 0;
+
+    const today = startOfDay(new Date());
+    const hasToday = uniqueDates.some((d) => isSameDay(d, today));
+    const yesterday = subDays(today, 1);
+    const hasYesterday = uniqueDates.some((d) => isSameDay(d, yesterday));
+
+    if (!hasToday && !hasYesterday) return 0;
+
+    let currentStreak = 0;
+    let expectedDate = hasToday ? today : yesterday;
+
+    for (const d of uniqueDates) {
+      // If the date is newer than expected (e.g. we are looking for yesterday but this date is today, and we started expecting yesterday), skip.
+      // But based on logic, if hasToday is true, we start with today. If not, we start with yesterday.
+      // Since uniqueDates is sorted descending, we should just match.
+      if (isSameDay(d, expectedDate)) {
+        currentStreak++;
+        expectedDate = subDays(expectedDate, 1);
+      } else if (d < expectedDate) {
+        // Gap found
+        break;
+      }
+    }
+    return currentStreak;
+  }, [parsedVisits]);
+
+  const perDestinationRates = useMemo(() => {
+    return destinations.map((d) => {
+      const target = d.frequency?.days?.length > 0 ? d.frequency.days.length : 1;
+      const result = calculateCompletionRate(parsedVisits, d.id, target, {
+        period,
+        frequencyDays: d.frequency?.days ?? [],
+        referenceDate: new Date(),
+      });
+      return { id: d.id, name: d.name, ...result };
+    });
+  }, [destinations, parsedVisits, period]);
+
+  const overallRate = useMemo(() => {
+    if (perDestinationRates.length === 0) return 0;
+    if (selectedDestination !== 'all') {
+      const item = perDestinationRates.find((p) => p.id === selectedDestination);
+      return item ? Math.round(item.rate * 10) / 10 : 0;
+    }
+    // Compute overall rate as total completed / total target across destinations
+    const totalCompleted = perDestinationRates.reduce((s, p) => s + (p.completed ?? 0), 0);
+    const totalTarget = perDestinationRates.reduce((s, p) => s + (p.target ?? 0), 0);
+    if (totalTarget <= 0) return 0;
+    const rate = (totalCompleted / totalTarget) * 100;
+    return Math.round(Math.min(rate, 100) * 10) / 10;
+  }, [perDestinationRates, selectedDestination]);
 
   return (
-    <div className="space-y-6">
-      {sortedDates.map((date) => (
-        <div key={date}>
-          <div className="flex items-center gap-2 mb-3">
-            <h3 className="text-gray-900">{formatDate(date)}</h3>
-            <Badge variant="secondary">
-              {groupedByDate[date].length}件
-            </Badge>
-          </div>
-          <div className="space-y-2">
-            {groupedByDate[date]
-              .sort((a, b) => b.completedAt.localeCompare(a.completedAt))
-              .map((completion, index) => (
-                <Card key={index} className="p-4 bg-white/80 backdrop-blur-sm border-gray-200">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Check className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-gray-900">{getLocationName(completion.locationId)}</p>
-                      <p className="text-sm text-gray-500">{formatTime(completion.completedAt)}</p>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-          </div>
-        </div>
-      ))}
+    <div className="w-full">
+      <h2 className="text-lg sm:text-xl font-bold mb-3">習慣化の記録</h2>
+
+      <HistoryHeader
+        period={period}
+        setPeriod={setPeriod}
+        selectedDestination={selectedDestination}
+        setSelectedDestination={setSelectedDestination}
+        destinations={destinations}
+        overallRate={overallRate}
+      />
+
+      <HistoryCalendar
+        selectedDate={selectedDate}
+        setSelectedDate={setSelectedDate}
+        visitedDates={visitedDates}
+        filteredVisits={filteredVisits}
+        destinations={destinations}
+      />
+
+      <HistoryList
+        pageVisits={pageVisits}
+        filteredVisitsCount={filteredVisits.length}
+        destinations={destinations}
+        setPage={setPage}
+      />
+
+      <DestinationDebugStats perDestinationRates={perDestinationRates} />
+
+      <HistoryStats
+        totalVisits={totalVisits}
+        mostVisitedName={mostVisitedName}
+        mostVisitedCount={mostVisited.count}
+        streak={streak}
+      />
     </div>
   );
 }
