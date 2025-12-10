@@ -7,16 +7,16 @@ export const userDataAtom = atomWithStorage<UserData | null>(
   {
     getItem: (key: string) => {
       if (typeof window === 'undefined') return null;
-      const value = sessionStorage.getItem(key);
+      const value = localStorage.getItem(key);
       return value ? JSON.parse(value) : null;
     },
     setItem: (key: string, value: UserData | null) => {
       if (typeof window === 'undefined') return;
-      sessionStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(key, JSON.stringify(value));
     },
     removeItem: (key: string) => {
       if (typeof window === 'undefined') return;
-      sessionStorage.removeItem(key);
+      localStorage.removeItem(key);
     },
   }
 );
@@ -28,16 +28,16 @@ export const visitHistoryAtom = atomWithStorage<Visit[]>(
   {
     getItem: (key: string) => {
       if (typeof window === 'undefined') return [];
-      const value = sessionStorage.getItem(key);
+      const value = localStorage.getItem(key);
       return value ? JSON.parse(value) : [];
     },
     setItem: (key: string, value: Visit[]) => {
       if (typeof window === 'undefined') return;
-      sessionStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(key, JSON.stringify(value));
     },
     removeItem: (key: string) => {
       if (typeof window === 'undefined') return;
-      sessionStorage.removeItem(key);
+      localStorage.removeItem(key);
     },
   }
 );
