@@ -48,6 +48,20 @@ export const getVisitsByDestination = (visits: Visit[], destinationId: string): 
 };
 
 // ヘルパー関数: 達成率を計算（週の目標回数 vs 実際の訪問回数）
+import {
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  isWithinInterval,
+  getDaysInMonth,
+  getDay,
+  differenceInCalendarWeeks,
+  min,
+  max,
+} from 'date-fns';
+
+// ヘルパー関数: 達成率を計算（週の目標回数 vs 実際の訪問回数）
 export const calculateCompletionRate = (
   visits: Visit[],
   destinationId: string,
@@ -62,18 +76,13 @@ export const calculateCompletionRate = (
 
   let start: Date | null = null;
   let end: Date | null = null;
+
   if (period === 'week') {
-    start = new Date(referenceDate);
-    start.setDate(referenceDate.getDate() - referenceDate.getDay());
-    start.setHours(0, 0, 0, 0);
-    end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    end.setHours(23, 59, 59, 999);
+    start = startOfWeek(referenceDate);
+    end = endOfWeek(referenceDate);
   } else if (period === 'month') {
-    start = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1);
-    start.setHours(0, 0, 0, 0);
-    end = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0);
-    end.setHours(23, 59, 59, 999);
+    start = startOfMonth(referenceDate);
+    end = endOfMonth(referenceDate);
   }
 
   const periodVisits = visits.filter((visit) => {
@@ -81,38 +90,40 @@ export const calculateCompletionRate = (
     if (period === 'all') return true;
     const visitDate = new Date(visit.visitedAt);
     if (!start || !end) return false;
-    return visitDate >= start && visitDate <= end;
+    return isWithinInterval(visitDate, { start, end });
   });
 
   const completed = periodVisits.length;
 
   let target = targetFrequency;
   if (period === 'month') {
-    // Calculate monthly target using frequencyDays to count how many matching weekdays occur in month
+    // Calculate monthly target correctly based on frequencyDays
     if (frequencyDays && frequencyDays.length > 0) {
       const year = referenceDate.getFullYear();
       const month = referenceDate.getMonth();
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysInMonth = getDaysInMonth(referenceDate);
       let count = 0;
       for (let d = 1; d <= daysInMonth; d++) {
         const dt = new Date(year, month, d);
-        if (frequencyDays.includes(dt.getDay())) count++;
+        if (frequencyDays.includes(getDay(dt))) count++;
       }
       target = count;
     } else {
-      // fallback: approximate 4 weeks
-      target = targetFrequency * 4;
+      // fallback: approximate 4.3 weeks
+      target = Math.ceil(targetFrequency * (getDaysInMonth(referenceDate) / 7));
     }
   } else if (period === 'all') {
-    // For all, use targetFrequency as weekly target; let's calculate target per number of weeks in data range
-    if (visits.length === 0) target = targetFrequency;
-    else {
-      const dates = visits.filter(v => v.destinationId === destinationId).map(v => new Date(v.visitedAt));
-      if (dates.length === 0) target = targetFrequency;
-      else {
-        const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
-        const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
-        const weeks = Math.max(1, Math.ceil((maxDate.getTime() - minDate.getTime()) / (7 * 24 * 60 * 60 * 1000)));
+    if (visits.length === 0) {
+      target = targetFrequency;
+    } else {
+      const dates = visits.filter((v) => v.destinationId === destinationId).map((v) => new Date(v.visitedAt));
+      if (dates.length === 0) {
+        target = targetFrequency;
+      } else {
+        const minDate = min(dates);
+        const maxDate = max(dates);
+        // Add 1 to include the partial week
+        const weeks = Math.max(1, differenceInCalendarWeeks(maxDate, minDate) + 1);
         target = targetFrequency * weeks;
       }
     }

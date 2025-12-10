@@ -18,6 +18,18 @@ import { Visit } from '@/app/lib/types';
 
 type Period = 'week' | 'month' | 'all';
 
+import {
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  isWithinInterval,
+  startOfDay,
+  subDays,
+  isSameDay,
+  differenceInCalendarDays,
+} from 'date-fns';
+
 export function TaskHistory() {
   const visits = useAtomValue(visitHistoryAtom) ?? [];
   const userData = useAtomValue(userDataAtom);
@@ -32,14 +44,17 @@ export function TaskHistory() {
   const inPeriod = (date: Date) => {
     const now = new Date();
     if (period === 'all') return true;
-    if (period === 'month') return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
-    return date >= startOfWeek && date <= endOfWeek;
+
+    let start, end;
+    if (period === 'month') {
+      start = startOfMonth(now);
+      end = endOfMonth(now);
+    } else {
+      // period === 'week'
+      start = startOfWeek(now);
+      end = endOfWeek(now);
+    }
+    return isWithinInterval(date, { start, end });
   };
 
   const parsedVisits: Visit[] = useMemo(() => (visits ?? []).map((v) => ({ ...v })), [visits]);
@@ -48,8 +63,7 @@ export function TaskHistory() {
     let res = parsedVisits;
     if (selectedDestination !== 'all') res = res.filter((v) => v.destinationId === selectedDestination);
     if (selectedDate) {
-      const dStr = selectedDate.toDateString();
-      res = res.filter((v) => new Date(v.visitedAt).toDateString() === dStr);
+      res = res.filter((v) => isSameDay(new Date(v.visitedAt), selectedDate));
     } else {
       res = res.filter((v) => inPeriod(new Date(v.visitedAt)));
     }
@@ -57,11 +71,11 @@ export function TaskHistory() {
   }, [parsedVisits, selectedDestination, period, selectedDate]);
 
   const visitedDates = useMemo(() => {
-    const set = new Map<string, Date>();
+    const set = new Map<number, Date>();
     filteredVisits.forEach((v) => {
-      const d = new Date(v.visitedAt);
-      const key = d.toDateString();
-      if (!set.has(key)) set.set(key, new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+      const d = startOfDay(new Date(v.visitedAt));
+      const key = d.getTime();
+      if (!set.has(key)) set.set(key, d);
     });
     return Array.from(set.values());
   }, [filteredVisits]);
@@ -82,31 +96,35 @@ export function TaskHistory() {
   const mostVisitedName = destinations.find((d) => d.id === mostVisited.destinationId)?.name ?? '―';
 
   const streak = useMemo(() => {
-    const uniqueDays = Array.from(new Set(parsedVisits.map((v) => new Date(v.visitedAt).toDateString())))
-      .map((s) => new Date(s))
+    const uniqueDates = Array.from(new Set(parsedVisits.map((v) => startOfDay(new Date(v.visitedAt)).getTime())))
+      .map((t) => new Date(t))
       .sort((a, b) => b.getTime() - a.getTime());
-    if (uniqueDays.length === 0) return 0;
-    let count = 0;
-    let prev = new Date();
-    prev.setHours(0, 0, 0, 0);
-    for (let i = 0; i < uniqueDays.length; i++) {
-      const d = uniqueDays[i];
-      d.setHours(0, 0, 0, 0);
-      if (i === 0) {
-        const diff = Math.floor((prev.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-        if (diff === 0) count = 1;
-        else if (diff === 1) count = 1;
-        else break;
-      } else {
-        const prevDay = uniqueDays[i - 1];
-        const expected = new Date(prevDay);
-        expected.setDate(prevDay.getDate() - 1);
-        expected.setHours(0, 0, 0, 0);
-        if (d.getTime() === expected.getTime()) count++;
-        else break;
+
+    if (uniqueDates.length === 0) return 0;
+
+    const today = startOfDay(new Date());
+    const hasToday = uniqueDates.some((d) => isSameDay(d, today));
+    const yesterday = subDays(today, 1);
+    const hasYesterday = uniqueDates.some((d) => isSameDay(d, yesterday));
+
+    if (!hasToday && !hasYesterday) return 0;
+
+    let currentStreak = 0;
+    let expectedDate = hasToday ? today : yesterday;
+
+    for (const d of uniqueDates) {
+      // If the date is newer than expected (e.g. we are looking for yesterday but this date is today, and we started expecting yesterday), skip.
+      // But based on logic, if hasToday is true, we start with today. If not, we start with yesterday.
+      // Since uniqueDates is sorted descending, we should just match.
+      if (isSameDay(d, expectedDate)) {
+        currentStreak++;
+        expectedDate = subDays(expectedDate, 1);
+      } else if (d < expectedDate) {
+        // Gap found
+        break;
       }
     }
-    return count;
+    return currentStreak;
   }, [parsedVisits]);
 
   const perDestinationRates = useMemo(() => {
@@ -139,43 +157,43 @@ export function TaskHistory() {
     <div className="w-full">
       <h2 className="text-lg sm:text-xl font-bold mb-3">習慣化の記録</h2>
 
-        <section className="mb-4 overflow-hidden">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm sm:text-base">{period === 'week' ? '今週の達成率' : period === 'month' ? '今月の達成率' : '達成率'}: <strong>{overallRate}%</strong></p>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${overallRate}%` }} />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2 w-full sm:w-auto sm:flex-row sm:space-x-2 sm:flex-shrink-0">
-              <Select value={selectedDestination} onValueChange={(value) => setSelectedDestination(value as any)}>
-                <SelectTrigger className="w-full sm:w-48">
-                  <SelectValue placeholder="全ての目的地" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全ての目的地</SelectItem>
-                  {destinations.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={period} onValueChange={(value) => setPeriod(value as Period)}>
-                <SelectTrigger className="w-full sm:w-40">
-                  <SelectValue placeholder="期間を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="week">今週</SelectItem>
-                  <SelectItem value="month">今月</SelectItem>
-                  <SelectItem value="all">全期間</SelectItem>
-                </SelectContent>
-              </Select>
+      <section className="mb-4 overflow-hidden">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm sm:text-base">{period === 'week' ? '今週の達成率' : period === 'month' ? '今月の達成率' : '達成率'}: <strong>{overallRate}%</strong></p>
+            <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+              <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${overallRate}%` }} />
             </div>
           </div>
-        </section>
+
+          <div className="flex flex-col gap-2 w-full sm:w-auto sm:flex-row sm:space-x-2 sm:flex-shrink-0">
+            <Select value={selectedDestination} onValueChange={(value) => setSelectedDestination(value as any)}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="全ての目的地" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全ての目的地</SelectItem>
+                {destinations.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={period} onValueChange={(value) => setPeriod(value as Period)}>
+              <SelectTrigger className="w-full sm:w-40">
+                <SelectValue placeholder="期間を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="week">今週</SelectItem>
+                <SelectItem value="month">今月</SelectItem>
+                <SelectItem value="all">全期間</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </section>
 
       <section className="mb-6 overflow-x-auto">
         <h3 className="font-semibold mb-2 text-sm sm:text-base">📅 カレンダー</h3>
