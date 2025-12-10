@@ -6,7 +6,7 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Slider } from '@/app/components/ui/slider';
 import { toast } from 'sonner';
-import { Location } from '../App';
+import { Location } from '@/app/lib/types';
 
 interface AddLocationDialogProps {
   open: boolean;

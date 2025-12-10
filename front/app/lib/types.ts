@@ -18,3 +18,21 @@ export interface Frequency {
   days: number[]; // 0-6 (日-土)
   time: string; // HH:MM
 }
+export interface Visit {
+  id: string;
+  destinationId: string;
+  visitedAt: string; // ISO 8601形式
+  latitude?: number; // チェックイン時の位置情報
+  longitude?: number;
+  note?: string; // メモ（オプション）
+}
+
+export interface Location {
+  id: string;
+  name: string;
+  address?: string;
+  latitude: number;
+  longitude: number;
+  radius: number; // 到達範囲（メートル）
+  createdAt: string;
+}
