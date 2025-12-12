@@ -2,8 +2,10 @@ import React, { useMemo, useState } from 'react';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 
-import { Card } from '@/app/components/ui/card';
-import { Badge } from '@/app/components/ui/badge';
+import { useAtomValue } from 'jotai';
+import { visitHistoryAtom } from '@/app/lib/store';
+import { userDataAtom } from '@/app/lib/store';
+import { Visit } from '@/app/lib/types';
 import {
   Select,
   SelectContent,
@@ -11,9 +13,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/app/components/ui/select';
-import { useAtomValue } from 'jotai';
-import { visitHistoryAtom, userDataAtom } from '@/app/lib/store';
-import { Visit } from '@/app/lib/types';
+import {
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  isWithinInterval,
+  startOfDay,
+  subDays,
+  isSameDay,
+} from 'date-fns';
 
 type Period = 'week' | 'month' | 'all';
 
@@ -31,14 +40,17 @@ export function TaskHistory() {
   const inPeriod = (date: Date) => {
     const now = new Date();
     if (period === 'all') return true;
-    if (period === 'month') return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
-    return date >= startOfWeek && date <= endOfWeek;
+
+    let start, end;
+    if (period === 'month') {
+      start = startOfMonth(now);
+      end = endOfMonth(now);
+    } else {
+      // period === 'week'
+      start = startOfWeek(now);
+      end = endOfWeek(now);
+    }
+    return isWithinInterval(date, { start, end });
   };
 
   const parsedVisits: Visit[] = useMemo(() => (visits ?? []).map((v) => ({ ...v })), [visits]);
@@ -47,8 +59,7 @@ export function TaskHistory() {
     let res = parsedVisits;
     if (selectedDestination !== 'all') res = res.filter((v) => v.destinationId === selectedDestination);
     if (selectedDate) {
-      const dStr = selectedDate.toDateString();
-      res = res.filter((v) => new Date(v.visitedAt).toDateString() === dStr);
+      res = res.filter((v) => isSameDay(new Date(v.visitedAt), selectedDate));
     } else {
       res = res.filter((v) => inPeriod(new Date(v.visitedAt)));
     }
@@ -56,11 +67,11 @@ export function TaskHistory() {
   }, [parsedVisits, selectedDestination, period, selectedDate]);
 
   const visitedDates = useMemo(() => {
-    const set = new Map<string, Date>();
+    const set = new Map<number, Date>();
     filteredVisits.forEach((v) => {
-      const d = new Date(v.visitedAt);
-      const key = d.toDateString();
-      if (!set.has(key)) set.set(key, new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+      const d = startOfDay(new Date(v.visitedAt));
+      const key = d.getTime();
+      if (!set.has(key)) set.set(key, d);
     });
     return Array.from(set.values());
   }, [filteredVisits]);
@@ -81,34 +92,32 @@ export function TaskHistory() {
   const mostVisitedName = destinations.find((d) => d.id === mostVisited.destinationId)?.name ?? '―';
 
   const streak = useMemo(() => {
-    const uniqueDays = Array.from(new Set(parsedVisits.map((v) => new Date(v.visitedAt).toDateString())))
-      .map((s) => new Date(s))
+    const uniqueDates = Array.from(new Set(parsedVisits.map((v) => startOfDay(new Date(v.visitedAt)).getTime())))
+      .map((t) => new Date(t))
       .sort((a, b) => b.getTime() - a.getTime());
-    if (uniqueDays.length === 0) return 0;
-    let count = 0;
-    let prev = new Date();
-    prev.setHours(0, 0, 0, 0);
-    for (let i = 0; i < uniqueDays.length; i++) {
-      const d = uniqueDays[i];
-      d.setHours(0, 0, 0, 0);
-      if (i === 0) {
-        const diff = Math.floor((prev.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-        if (diff === 0) count = 1;
-        else if (diff === 1) count = 1;
-        else break;
-      } else {
-        const prevDay = uniqueDays[i - 1];
-        const expected = new Date(prevDay);
-        expected.setDate(prevDay.getDate() - 1);
-        expected.setHours(0, 0, 0, 0);
-        if (d.getTime() === expected.getTime()) count++;
-        else break;
+
+    if (uniqueDates.length === 0) return 0;
+
+    const today = startOfDay(new Date());
+    const hasToday = uniqueDates.some((d) => isSameDay(d, today));
+    const yesterday = subDays(today, 1);
+    const hasYesterday = uniqueDates.some((d) => isSameDay(d, yesterday));
+
+    if (!hasToday && !hasYesterday) return 0;
+
+    let currentStreak = 0;
+    let expectedDate = hasToday ? today : yesterday;
+
+    for (const d of uniqueDates) {
+      if (isSameDay(d, expectedDate)) {
+        currentStreak++;
+        expectedDate = subDays(expectedDate, 1);
+      } else if (d < expectedDate) {
+        break;
       }
     }
-    return count;
+    return currentStreak;
   }, [parsedVisits]);
-
-  
 
   return (
     <div className="w-full">
@@ -195,8 +204,6 @@ export function TaskHistory() {
           )}
         </div>
       </section>
-
-      {/* 達成率関連の表示は削除 */}
 
       <section>
         <h3 className="font-semibold mb-2 text-sm sm:text-base">📈 統計</h3>
