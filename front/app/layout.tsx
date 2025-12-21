@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Daily Task App",
-  description: "どこかへ行く体験を習慣にする",
+  title: "Koko",
+  description: "Kokoは、どこかへ行く体験を習慣にするアプリです。",
 };
 
 export default function RootLayout({

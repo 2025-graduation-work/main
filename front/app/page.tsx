@@ -30,6 +30,9 @@ export default function Home() {
 
         {/* Title & Description */}
         <div className="mb-12">
+          <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-pink-600 mb-2">
+            Koko
+          </h2>
           <h1 className="text-gray-900 mb-4">
             「どこかへ行く体験」を<br />習慣にする
           </h1>

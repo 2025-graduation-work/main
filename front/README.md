@@ -1,4 +1,4 @@
-# front
+# Koko
 フロントエンドサーバ（Next.js）
 
 ## setup
