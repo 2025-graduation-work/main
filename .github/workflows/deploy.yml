@@ -74,7 +74,7 @@ jobs:
           IMAGE_TAG=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
           LATEST_TAG=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:latest
           
-          docker build -t $IMAGE_TAG -t $LATEST_TAG .
+          docker build --build-arg NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }} -t $IMAGE_TAG -t $LATEST_TAG .
           docker push $IMAGE_TAG
           docker push $LATEST_TAG
 
