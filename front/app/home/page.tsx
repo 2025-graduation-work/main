@@ -153,7 +153,7 @@ export default function Home() {
 
             <TabsContent value="list" className="mt-0">
               <div className="space-y-8">
-                {getSortedDestinationGroups(userData.destinations).map((group) => (
+                {getSortedDestinationGroups(userData.destinations, userData.visits).map((group) => (
                   <div key={group.title}>
                     <h3 className="text-sm font-medium text-gray-500 mb-3 ml-1">{group.title}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -161,6 +161,7 @@ export default function Home() {
                         <DestinationCard
                           key={destination.id}
                           destination={destination}
+                          visits={userData.visits}
                           onClick={() => setSelectedDestination(destination)}
                         />
                       ))}

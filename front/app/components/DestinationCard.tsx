@@ -1,23 +1,24 @@
 import { MapPin, Calendar, Clock } from 'lucide-react';
 import { Card } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
-import { Destination } from '@/app/lib/types';
+import { Destination, Visit } from '@/app/lib/types';
 import { getNextSchedule } from '@/app/lib/dateUtils';
 import { cn } from '@/app/lib/utils';
 
 interface DestinationCardProps {
   destination: Destination;
+  visits: Visit[];
   onClick: () => void;
 }
 
 const DAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
-export function DestinationCard({ destination, onClick }: DestinationCardProps) {
+export function DestinationCard({ destination, visits, onClick }: DestinationCardProps) {
   const formatDays = () => {
     return destination.frequency.days.map(d => DAYS[d]).join('・');
   };
 
-  const nextSchedule = getNextSchedule(destination);
+  const nextSchedule = getNextSchedule(destination, visits);
   const isToday = new Date().toDateString() === nextSchedule.toDateString();
 
   return (
