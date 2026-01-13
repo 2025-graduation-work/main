@@ -9,6 +9,7 @@ import { Destination } from '@/app/lib/types';
 import { DestinationCard } from '@/app/components/DestinationCard';
 import { DestinationDetailModal } from '@/app/components/DestinationDetailModal';
 import { AddDestinationDialog } from '@/app/components/AddDestinationDialog';
+import { getSortedDestinationGroups } from '@/app/lib/dateUtils';
 import { MapView } from '@/app/components/MapView';
 import { Button } from '@/app/components/ui/button';
 import { Card } from '@/app/components/ui/card';
@@ -71,7 +72,7 @@ export default function Home() {
 
   const handleNicknameChange = () => {
     if (!userData) return;
-    
+
     if (!newNickname.trim()) {
       toast.error('ニックネームを入力してください');
       return;
@@ -81,7 +82,7 @@ export default function Home() {
       ...userData,
       nickname: newNickname.trim(),
     });
-    
+
     setShowNicknameDialog(false);
     setNewNickname('');
     toast.success('ニックネームを変更しました');
@@ -151,13 +152,20 @@ export default function Home() {
             </TabsList>
 
             <TabsContent value="list" className="mt-0">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {userData.destinations.map((destination) => (
-                  <DestinationCard
-                    key={destination.id}
-                    destination={destination}
-                    onClick={() => setSelectedDestination(destination)}
-                  />
+              <div className="space-y-8">
+                {getSortedDestinationGroups(userData.destinations).map((group) => (
+                  <div key={group.title}>
+                    <h3 className="text-sm font-medium text-gray-500 mb-3 ml-1">{group.title}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {group.destinations.map((destination) => (
+                        <DestinationCard
+                          key={destination.id}
+                          destination={destination}
+                          onClick={() => setSelectedDestination(destination)}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </TabsContent>
