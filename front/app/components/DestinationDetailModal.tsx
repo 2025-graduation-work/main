@@ -17,13 +17,15 @@ import {
   AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Destination } from '@/app/lib/types';
+import { Destination, Visit } from '@/app/lib/types';
+import { getNextSchedule } from '@/app/lib/dateUtils';
 
 import { getCurrentLocation, calculateDistance } from '@/app/lib/locationUtils';
 import { cn } from '@/app/lib/utils';
 
 interface DestinationDetailModalProps {
   destination: Destination;
+  visits: Visit[];
   onClose: () => void;
   onUpdate: (updates: Partial<Destination>) => void;
   onDelete: () => void;
@@ -42,6 +44,7 @@ const DAYS = [
 
 export function DestinationDetailModal({
   destination,
+  visits,
   onClose,
   onUpdate,
   onDelete,
@@ -85,7 +88,10 @@ export function DestinationDetailModal({
     onClose();
   };
 
-  const canCheckIn = distance !== null && distance <= 1000;
+  const nextSchedule = getNextSchedule(destination, visits);
+  const isToday = new Date().toDateString() === nextSchedule.toDateString();
+
+  const canCheckIn = isToday && distance !== null && distance <= 1000;
 
   const formatDays = () => {
     return destination.frequency.days.map(d => DAYS[d].label).join('・');

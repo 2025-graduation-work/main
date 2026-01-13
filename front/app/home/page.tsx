@@ -209,6 +209,7 @@ export default function Home() {
         {selectedDestination && (
           <DestinationDetailModal
             destination={selectedDestination}
+            visits={userData.visits}
             onClose={() => setSelectedDestination(null)}
             onUpdate={(updates) => updateDestination(selectedDestination.id, updates)}
             onDelete={() => deleteDestination(selectedDestination.id)}
