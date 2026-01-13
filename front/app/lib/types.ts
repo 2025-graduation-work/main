@@ -1,6 +1,7 @@
 export interface UserData {
   nickname: string;
   destinations: Destination[];
+  visits: Visit[];
 }
 
 export interface Destination {

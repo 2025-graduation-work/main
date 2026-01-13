@@ -38,8 +38,8 @@ export default function Setup() {
       case 3: // Destination
         return firstDestination !== null;
       case 4: // Frequency
-        return firstDestination !== null && 
-               firstDestination.frequency.days.length > 0;
+        return firstDestination !== null &&
+          firstDestination.frequency.days.length > 0;
       case 5: // Completion
         return true;
       default:
@@ -57,6 +57,7 @@ export default function Setup() {
           id: crypto.randomUUID(),
           createdAt: new Date().toISOString(),
         }] : [],
+        visits: [],
       });
       router.push('/home');
     } else {

@@ -87,6 +87,7 @@ const demoUserData: UserData = {
       createdAt: new Date(2025, 10, 5).toISOString(),
     },
   ],
+  visits: demoVisits,
 };
 
 function TaskHistoryDemoContent() {

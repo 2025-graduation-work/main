@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { MapPin, Calendar, Clock, Edit2, Trash2, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { MapPin, Calendar, Clock, Edit2, Trash2, X, Navigation } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
@@ -19,11 +19,15 @@ import {
 import { toast } from 'sonner';
 import { Destination } from '@/app/lib/types';
 
+import { getCurrentLocation, calculateDistance } from '@/app/lib/locationUtils';
+import { cn } from '@/app/lib/utils';
+
 interface DestinationDetailModalProps {
   destination: Destination;
   onClose: () => void;
   onUpdate: (updates: Partial<Destination>) => void;
   onDelete: () => void;
+  onCheckIn: (location?: { latitude: number; longitude: number }) => void;
 }
 
 const DAYS = [
@@ -41,10 +45,47 @@ export function DestinationDetailModal({
   onClose,
   onUpdate,
   onDelete,
+  onCheckIn,
 }: DestinationDetailModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [editedFrequency, setEditedFrequency] = useState(destination.frequency);
+  const [distance, setDistance] = useState<number | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | undefined>(undefined);
+  const [isCheckingLocation, setIsCheckingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    checkDistance();
+  }, []);
+
+  const checkDistance = async () => {
+    setIsCheckingLocation(true);
+    setLocationError(null);
+    try {
+      const location = await getCurrentLocation();
+      setCurrentLocation(location);
+      const dist = calculateDistance(
+        location.latitude,
+        location.longitude,
+        destination.latitude,
+        destination.longitude
+      );
+      setDistance(dist);
+    } catch (error) {
+      console.error('Location error:', error);
+      setLocationError('現在地を取得できませんでした');
+    } finally {
+      setIsCheckingLocation(false);
+    }
+  };
+
+  const handleCheckIn = () => {
+    onCheckIn(currentLocation);
+    onClose();
+  };
+
+  const canCheckIn = distance !== null && distance <= 1000;
 
   const formatDays = () => {
     return destination.frequency.days.map(d => DAYS[d].label).join('・');
@@ -122,28 +163,54 @@ export function DestinationDetailModal({
               </div>
             </Card>
 
-            {/* Google Map Preview */}
-            <div className="space-y-2">
-              <Label>地図</Label>
-              <div className="w-full h-48 bg-gray-200 rounded-lg flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <MapPin className="w-8 h-8 mx-auto mb-2" />
-                  <p className="text-sm">Google Maps統合</p>
-                  <p className="text-xs">実装時にはGoogle Maps APIが必要です</p>
+            {/* Check-in Section */}
+            {!isEditing && (
+              <Card className="p-4 bg-white border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Navigation className="w-5 h-5 text-indigo-600" />
+                    <div>
+                      <h4 className="font-medium text-gray-900">チェックイン</h4>
+                      <p className="text-xs text-gray-500">
+                        {isCheckingLocation ? (
+                          "位置情報を確認中..."
+                        ) : locationError ? (
+                          <span className="text-red-500">{locationError}</span>
+                        ) : distance !== null ? (
+                          `目的地まで約 ${Math.round(distance)}m`
+                        ) : (
+                          "位置情報を取得できません"
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={checkDistance}
+                    disabled={isCheckingLocation}
+                  >
+                    更新
+                  </Button>
                 </div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const url = `https://www.google.com/maps/search/?api=1&query=${destination.latitude},${destination.longitude}`;
-                  window.open(url, '_blank');
-                }}
-                className="w-full"
-              >
-                Google Mapsで開く
-              </Button>
-            </div>
+
+                <Button
+                  className={cn(
+                    "w-full gap-2",
+                    canCheckIn
+                      ? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                      : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                  )}
+                  disabled={!canCheckIn}
+                  onClick={handleCheckIn}
+                >
+                  <MapPin className="w-4 h-4" />
+                  {canCheckIn ? "チェックインする" : "目的地に近づいてください (1000m以内)"}
+                </Button>
+              </Card>
+            )}
+
+
 
             {/* Frequency */}
             {!isEditing ? (
@@ -165,7 +232,7 @@ export function DestinationDetailModal({
             ) : (
               <div className="space-y-4">
                 <Label>頻度を編集</Label>
-                
+
                 {/* Days */}
                 <div className="space-y-2">
                   <Label className="text-sm">曜日</Label>
@@ -176,11 +243,10 @@ export function DestinationDetailModal({
                         <button
                           key={day.value}
                           onClick={() => toggleDay(day.value)}
-                          className={`aspect-square rounded-lg border-2 transition-all ${
-                            isSelected
-                              ? 'border-indigo-500 bg-indigo-500 text-white'
-                              : 'border-gray-300 bg-white text-gray-700 hover:border-indigo-300'
-                          }`}
+                          className={`aspect-square rounded-lg border-2 transition-all ${isSelected
+                            ? 'border-indigo-500 bg-indigo-500 text-white'
+                            : 'border-gray-300 bg-white text-gray-700 hover:border-indigo-300'
+                            }`}
                         >
                           <span className="text-sm">{day.label}</span>
                         </button>

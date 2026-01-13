@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAtom } from 'jotai';
 import { userDataAtom } from '@/app/lib/store';
 import { Plus, Edit2, List, Map } from 'lucide-react';
-import { Destination } from '@/app/lib/types';
+import { Destination, Visit } from '@/app/lib/types';
 import { DestinationCard } from '@/app/components/DestinationCard';
 import { DestinationDetailModal } from '@/app/components/DestinationDetailModal';
 import { AddDestinationDialog } from '@/app/components/AddDestinationDialog';
@@ -199,6 +199,21 @@ export default function Home() {
             onClose={() => setSelectedDestination(null)}
             onUpdate={(updates) => updateDestination(selectedDestination.id, updates)}
             onDelete={() => deleteDestination(selectedDestination.id)}
+            onCheckIn={(location) => {
+              if (!userData) return;
+              const newVisit: Visit = {
+                id: crypto.randomUUID(),
+                destinationId: selectedDestination.id,
+                visitedAt: new Date().toISOString(),
+                latitude: location?.latitude,
+                longitude: location?.longitude,
+              };
+              setUserData({
+                ...userData,
+                visits: [...(userData.visits || []), newVisit],
+              });
+              toast.success('チェックインしました！');
+            }}
           />
         )}
 

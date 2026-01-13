@@ -2,6 +2,8 @@ import { MapPin, Calendar, Clock } from 'lucide-react';
 import { Card } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
 import { Destination } from '@/app/lib/types';
+import { getNextSchedule } from '@/app/lib/dateUtils';
+import { cn } from '@/app/lib/utils';
 
 interface DestinationCardProps {
   destination: Destination;
@@ -15,19 +17,30 @@ export function DestinationCard({ destination, onClick }: DestinationCardProps) 
     return destination.frequency.days.map(d => DAYS[d]).join('・');
   };
 
+  const nextSchedule = getNextSchedule(destination);
+  const isToday = new Date().toDateString() === nextSchedule.toDateString();
+
   return (
     <Card
       onClick={onClick}
-      className="p-6 bg-white/80 backdrop-blur-sm hover:shadow-lg transition-all cursor-pointer border-2 hover:border-indigo-300"
+      className={cn(
+        "p-6 bg-white/80 backdrop-blur-sm hover:shadow-lg transition-all cursor-pointer border-2 hover:border-indigo-300",
+        isToday && "border-green-200 hover:border-green-400"
+      )}
     >
       <div className="flex items-start gap-4">
-        <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+        <div className={cn(
+          "w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0",
+          isToday
+            ? "bg-gradient-to-br from-green-500 to-emerald-600"
+            : "bg-gradient-to-br from-indigo-500 to-purple-500"
+        )}>
           <MapPin className="w-6 h-6 text-white" />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-gray-900 mb-1 truncate">{destination.name}</h3>
           <p className="text-sm text-gray-600 mb-3 truncate">{destination.address}</p>
-          
+
           <div className="flex flex-wrap gap-2">
             {destination.frequency.days.length > 0 && (
               <Badge variant="outline" className="gap-1">
