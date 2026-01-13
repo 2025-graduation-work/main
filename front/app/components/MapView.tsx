@@ -12,14 +12,15 @@ import { Destination } from '@/app/lib/types';
 interface MapViewProps {
   destinations: Destination[];
   onDestinationClick: (destination: Destination) => void;
+  focusedDestination?: Destination | null;
 }
 
 const mapContainerStyle = {
   width: '100%',
-  height: '600px',
+  height: '400px',
 };
 
-function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
+function MapViewContent({ destinations, onDestinationClick, focusedDestination }: MapViewProps) {
   const [currentPosition, setCurrentPosition] = useState<GeolocationPosition | null>(null);
   const [isLoadingPosition, setIsLoadingPosition] = useState(false);
   const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
@@ -59,13 +60,22 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
 
   // destinations が変更されたとき地図をフィット
   useEffect(() => {
-    const bounds = calculateMapBounds();
-    setMapState({ ...bounds.center, zoom: bounds.zoom });
-  }, [calculateMapBounds]);
+    if (focusedDestination) {
+      setMapState({
+        lat: focusedDestination.latitude,
+        lng: focusedDestination.longitude,
+        zoom: 15,
+      });
+      setSelectedDestination(focusedDestination);
+    } else {
+      const bounds = calculateMapBounds();
+      setMapState({ ...bounds.center, zoom: bounds.zoom });
+    }
+  }, [calculateMapBounds, focusedDestination]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
 
-  const getCurrentPosition = () => {
+  const getCurrentPosition = (shouldRecenter: boolean = true) => {
     setIsLoadingPosition(true);
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -73,12 +83,15 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
           setCurrentPosition(position);
           setIsLoadingPosition(false);
           toast.success('現在位置を取得しました');
-          // 地図の中心を現在位置に更新
-          setMapState({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            zoom: 14,
-          });
+
+          if (shouldRecenter) {
+            // 地図の中心を現在位置に更新
+            setMapState({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              zoom: 14,
+            });
+          }
         },
         (error) => {
           setIsLoadingPosition(false);
@@ -97,10 +110,11 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
   useEffect(() => {
     // 現在位置取得を遅延実行
     const timer = setTimeout(() => {
-      getCurrentPosition();
+      // shouldRecenter is false if focusedDestination is present
+      getCurrentPosition(!focusedDestination);
     }, 0);
     return () => clearTimeout(timer);
-  }, []);
+  }, [focusedDestination]);
 
   return (
     <div className="space-y-4">
@@ -120,7 +134,7 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
           )}
         </div>
         <Button
-          onClick={getCurrentPosition}
+          onClick={() => getCurrentPosition(true)}
           disabled={isLoadingPosition}
           variant="outline"
           size="sm"
@@ -236,25 +250,19 @@ function MapViewContent({ destinations, onDestinationClick }: MapViewProps) {
         </div>
       </Card>
 
-      {/* Instructions */}
-      <Card className="p-4 bg-blue-50 border-blue-200">
-        <p className="text-sm text-blue-900">
-          <strong>ヒント:</strong> ピンをクリックすると目的地の詳細が表示されます。
-          Google Maps APIにより実際の地図上にピンを表示しています。
-        </p>
-      </Card>
+
     </div>
   );
 }
 
-export function MapView({ destinations, onDestinationClick }: MapViewProps) {
+export function MapView({ destinations, onDestinationClick, focusedDestination }: MapViewProps) {
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
   });
 
   if (!isLoaded) {
     return (
-      <Card className="relative bg-white/80 backdrop-blur-sm overflow-hidden h-[600px] flex items-center justify-center">
+      <Card className="relative bg-white/80 backdrop-blur-sm overflow-hidden h-[400px] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <svg className="w-6 h-6 text-gray-500 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -268,11 +276,11 @@ export function MapView({ destinations, onDestinationClick }: MapViewProps) {
 
   if (loadError) {
     return (
-      <Card className="relative bg-white/80 backdrop-blur-sm overflow-hidden h-[600px] flex items-center justify-center">
+      <Card className="relative bg-white/80 backdrop-blur-sm overflow-hidden h-[400px] flex items-center justify-center">
         <p className="text-red-500">マップの読み込みに失敗しました</p>
       </Card>
     );
   }
 
-  return <MapViewContent destinations={destinations} onDestinationClick={onDestinationClick} />;
+  return <MapViewContent destinations={destinations} onDestinationClick={onDestinationClick} focusedDestination={focusedDestination} />;
 }

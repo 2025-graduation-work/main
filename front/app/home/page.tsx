@@ -23,10 +23,17 @@ export default function Home() {
   const router = useRouter();
   const [userData, setUserData] = useAtom(userDataAtom);
   const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
+  const [mapFocusDestination, setMapFocusDestination] = useState<Destination | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [showNicknameDialog, setShowNicknameDialog] = useState(false);
   const [newNickname, setNewNickname] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+
+  useEffect(() => {
+    if (viewMode !== 'map') {
+      setMapFocusDestination(null);
+    }
+  }, [viewMode]);
 
   useEffect(() => {
     if (!userData) {
@@ -163,6 +170,10 @@ export default function Home() {
                           destination={destination}
                           visits={userData.visits}
                           onClick={() => setSelectedDestination(destination)}
+                          onMapClick={() => {
+                            setMapFocusDestination(destination);
+                            setViewMode('map');
+                          }}
                         />
                       ))}
                     </div>
@@ -175,6 +186,7 @@ export default function Home() {
               <MapView
                 destinations={userData.destinations}
                 onDestinationClick={(destination) => setSelectedDestination(destination)}
+                focusedDestination={mapFocusDestination}
               />
             </TabsContent>
           </Tabs>

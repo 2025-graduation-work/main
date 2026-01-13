@@ -1,6 +1,7 @@
-import { MapPin, Calendar, Clock } from 'lucide-react';
+import { MapPin, Calendar, Clock, Map } from 'lucide-react';
 import { Card } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
+import { Button } from '@/app/components/ui/button';
 import { Destination, Visit } from '@/app/lib/types';
 import { getNextSchedule } from '@/app/lib/dateUtils';
 import { cn } from '@/app/lib/utils';
@@ -9,11 +10,12 @@ interface DestinationCardProps {
   destination: Destination;
   visits: Visit[];
   onClick: () => void;
+  onMapClick: () => void;
 }
 
 const DAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
-export function DestinationCard({ destination, visits, onClick }: DestinationCardProps) {
+export function DestinationCard({ destination, visits, onClick, onMapClick }: DestinationCardProps) {
   const formatDays = () => {
     return destination.frequency.days.map(d => DAYS[d]).join('・');
   };
@@ -25,7 +27,7 @@ export function DestinationCard({ destination, visits, onClick }: DestinationCar
     <Card
       onClick={onClick}
       className={cn(
-        "p-6 bg-white/80 backdrop-blur-sm hover:shadow-lg transition-all cursor-pointer border-2 hover:border-indigo-300",
+        "p-6 bg-white/80 backdrop-blur-sm hover:shadow-lg transition-all cursor-pointer border-2 hover:border-indigo-300 relative group",
         isToday && "border-green-200 hover:border-green-400"
       )}
     >
@@ -39,7 +41,7 @@ export function DestinationCard({ destination, visits, onClick }: DestinationCar
           <MapPin className="w-6 h-6 text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-gray-900 mb-1 truncate">{destination.name}</h3>
+          <h3 className="text-gray-900 mb-1 truncate pr-8">{destination.name}</h3>
           <p className="text-sm text-gray-600 mb-3 truncate">{destination.address}</p>
 
           <div className="flex flex-wrap gap-2">
@@ -55,6 +57,18 @@ export function DestinationCard({ destination, visits, onClick }: DestinationCar
             </Badge>
           </div>
         </div>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-4 right-4 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"
+          onClick={(e) => {
+            e.stopPropagation();
+            onMapClick();
+          }}
+        >
+          <Map className="w-5 h-5" />
+        </Button>
       </div>
     </Card>
   );
