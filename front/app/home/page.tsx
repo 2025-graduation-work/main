@@ -230,7 +230,7 @@ export default function Home() {
                 visits: [...(userData.visits || []), newVisit],
                 savings: (userData.savings || 0) + 500,
               });
-              toast.success('ついた！ +500円');
+              toast.success('ついた！');
             }}
           />
         )}

@@ -76,7 +76,7 @@ export default function SavingsPage() {
           </Button>
           <div className="flex items-center gap-2">
             <Coins className="w-6 h-6 text-amber-500" />
-            <h1 className="text-2xl font-bold text-gray-900">趣味貯金</h1>
+            <h1 className="text-2xl font-bold text-gray-900">貯金</h1>
           </div>
         </div>
 
