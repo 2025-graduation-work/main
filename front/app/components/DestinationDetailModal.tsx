@@ -176,7 +176,7 @@ export function DestinationDetailModal({
                   <div className="flex items-center gap-2">
                     <Navigation className="w-5 h-5 text-indigo-600" />
                     <div>
-                      <h4 className="font-medium text-gray-900">チェックイン</h4>
+                      <h4 className="font-medium text-gray-900">ついたボタン</h4>
                       <p className="text-xs text-gray-500">
                         {isCheckingLocation ? (
                           "位置情報を確認中..."
@@ -211,7 +211,7 @@ export function DestinationDetailModal({
                   onClick={handleCheckIn}
                 >
                   <MapPin className="w-4 h-4" />
-                  {canCheckIn ? "チェックインする" : "目的地に近づいてください (1000m以内)"}
+                  {canCheckIn ? "ついた！" : "目的地に近づいてください (1000m以内)"}
                 </Button>
               </Card>
             )}

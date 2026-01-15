@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAtom } from 'jotai';
 import { userDataAtom } from '@/app/lib/store';
-import { Plus, Edit2, List, Map } from 'lucide-react';
+import { Plus, Edit2, List, Map, Coins } from 'lucide-react';
 import { Destination, Visit } from '@/app/lib/types';
 import { DestinationCard } from '@/app/components/DestinationCard';
 import { DestinationDetailModal } from '@/app/components/DestinationDetailModal';
@@ -112,7 +112,16 @@ export default function Home() {
         <div className="flex justify-between items-start mb-8">
           <div>
             <p className="text-sm text-gray-600 mb-1">ようこそ、</p>
-            <h1 className="text-gray-900">{userData.nickname} さん</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-gray-900">{userData.nickname} さん</h1>
+              <div
+                className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 rounded-full text-amber-600 font-medium cursor-pointer hover:bg-amber-100 transition-colors"
+                onClick={() => router.push('/savings')}
+              >
+                <Coins className="w-4 h-4" />
+                <span className="text-sm">¥{(userData.savings || 0).toLocaleString()}</span>
+              </div>
+            </div>
           </div>
           <Button
             variant="ghost"
@@ -219,8 +228,9 @@ export default function Home() {
               setUserData({
                 ...userData,
                 visits: [...(userData.visits || []), newVisit],
+                savings: (userData.savings || 0) + 500,
               });
-              toast.success('チェックインしました！');
+              toast.success('ついた！ +500円');
             }}
           />
         )}

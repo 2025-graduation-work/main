@@ -2,6 +2,7 @@ export interface UserData {
   nickname: string;
   destinations: Destination[];
   visits: Visit[];
+  savings?: number;
 }
 
 export interface Destination {
