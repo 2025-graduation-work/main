@@ -13,7 +13,6 @@ import { getSortedDestinationGroups } from '@/app/lib/dateUtils';
 import { MapView } from '@/app/components/MapView';
 import { Button } from '@/app/components/ui/button';
 import { Card } from '@/app/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
@@ -146,50 +145,45 @@ export default function Home() {
             </div>
           </Card>
         ) : (
-          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'map')} className="w-full">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-6">
-              <TabsTrigger value="list" className="gap-2">
-                <List className="w-4 h-4" />
-                リスト
-              </TabsTrigger>
-              <TabsTrigger value="map" className="gap-2">
-                <Map className="w-4 h-4" />
-                マップ
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="list" className="mt-0">
-              <div className="space-y-8">
-                {getSortedDestinationGroups(userData.destinations, userData.visits).map((group) => (
-                  <div key={group.title}>
-                    <h3 className="text-sm font-medium text-gray-500 mb-3 ml-1">{group.title}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {group.destinations.map((destination) => (
-                        <DestinationCard
-                          key={destination.id}
-                          destination={destination}
-                          visits={userData.visits}
-                          onClick={() => setSelectedDestination(destination)}
-                          onMapClick={() => {
-                            setMapFocusDestination(destination);
-                            setViewMode('map');
-                          }}
-                        />
-                      ))}
-                    </div>
+          viewMode === 'list' ? (
+            <div className="space-y-8">
+              {getSortedDestinationGroups(userData.destinations, userData.visits).map((group) => (
+                <div key={group.title}>
+                  <h3 className="text-sm font-medium text-gray-500 mb-3 ml-1">{group.title}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {group.destinations.map((destination) => (
+                      <DestinationCard
+                        key={destination.id}
+                        destination={destination}
+                        visits={userData.visits}
+                        onClick={() => setSelectedDestination(destination)}
+                        onMapClick={() => {
+                          setMapFocusDestination(destination);
+                          setViewMode('map');
+                        }}
+                      />
+                    ))}
                   </div>
-                ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="map" className="mt-0">
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <Button
+                variant="outline"
+                onClick={() => setViewMode('list')}
+                className="gap-2"
+              >
+                <List className="w-4 h-4" />
+                リストに戻る
+              </Button>
               <MapView
                 destinations={userData.destinations}
                 onDestinationClick={(destination) => setSelectedDestination(destination)}
                 focusedDestination={mapFocusDestination}
               />
-            </TabsContent>
-          </Tabs>
+            </div>
+          )
         )}
 
         {/* Add Button (FAB) */}
