@@ -303,68 +303,125 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
       async (position) => {
         const { latitude: lat, longitude: lng } = position.coords;
         const radiusMetres = parseInt(radius);
+        let attempts = 0;
+        const maxAttempts = 5;
 
-        // Generate random point within radius
-        const r = radiusMetres * Math.sqrt(Math.random());
-        const theta = Math.random() * 2 * Math.PI;
+        const searchRandomPlace = async (): Promise<void> => {
+          if (attempts >= maxAttempts) {
+            toast.error('周辺に適切な目的地が見つかりませんでした。');
+            setIsSearching(false);
+            return;
+          }
 
-        // Convert meters to lat/lng degrees (approximate)
-        // 1 deg lat = 111km, 1 deg lng = 111km * cos(lat)
-        const randomLat = lat + (r * Math.cos(theta)) / 111000;
-        const randomLng = lng + (r * Math.sin(theta)) / (111000 * Math.cos(lat * Math.PI / 180));
+          attempts++;
 
-        let placeData = {
-          name: '指定座標周辺',
-          address: `${randomLat.toFixed(6)}, ${randomLng.toFixed(6)}`,
-          lat: randomLat,
-          lng: randomLng,
+          // Generate random point within radius
+          const r = radiusMetres * Math.sqrt(Math.random());
+          const theta = Math.random() * 2 * Math.PI;
+
+          const randomLat = lat + (r * Math.cos(theta)) / 111000;
+          const randomLng = lng + (r * Math.sin(theta)) / (111000 * Math.cos(lat * Math.PI / 180));
+
+          try {
+            if (!googleMapRef.current) {
+              // Should not happen if map is ready, but safety check
+              throw new Error('Map not initialized');
+            }
+
+            const service = new window.google.maps.places.PlacesService(googleMapRef.current);
+            const request = {
+              location: { lat: randomLat, lng: randomLng },
+              radius: 200, // Search within 200m of the random point
+              type: 'point_of_interest' as any, // Broad category, can be specific
+              // Use keyword or diverse types to ensure public places
+              // Note: 'type' parameter in nearbySearch defines ONE type. 
+              // Either use specific type or relying on POI.
+            };
+
+            // We can't pass multiple types in 'type' field in older API, but we can check results.
+            // Let's try to search for something broad.
+
+            service.nearbySearch({
+              location: { lat: randomLat, lng: randomLng },
+              radius: 500,
+              type: 'point_of_interest' // This will return many things
+            }, (results: google.maps.places.PlaceResult[] | null, status: google.maps.places.PlacesServiceStatus) => {
+              if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                // Filter results to ensure they are "passable" / public enough
+                // Exclude some types if necessary?
+                const validTypes = ['park', 'tourist_attraction', 'museum', 'store', 'restaurant', 'cafe', 'library', 'church', 'school', 'university', 'gym', 'zoo', 'aquarium', 'shopping_mall'];
+
+                // Find first place that matches valid types or has a good rating/reviews
+                const validPlace = results.find((p: google.maps.places.PlaceResult) =>
+                  p.types?.some((t: string) => validTypes.includes(t)) || p.rating // simple heuristic
+                );
+
+                if (validPlace && validPlace.place_id) {
+                  // Get full details for the place
+                  const getDetails = async () => {
+                    const detailsRequest = {
+                      placeId: validPlace.place_id!,
+                      fields: ['name', 'formatted_address', 'geometry']
+                    };
+
+                    service.getDetails(detailsRequest, (place: google.maps.places.PlaceResult | null, detailStatus: google.maps.places.PlacesServiceStatus) => {
+                      if (detailStatus === window.google.maps.places.PlacesServiceStatus.OK && place && place.geometry && place.geometry.location) {
+                        const name = place.name || '指定された地点';
+                        const address = place.formatted_address || '';
+                        const pLat = place.geometry.location.lat();
+                        const pLng = place.geometry.location.lng();
+
+                        const placeData = {
+                          name: name,
+                          address: address,
+                          lat: pLat,
+                          lng: pLng,
+                        };
+
+                        setSelectedPlace(placeData);
+                        setSearchQuery(placeData.address);
+                        setPredictions([]);
+
+                        if (googleMapRef.current) {
+                          const pos = { lat: pLat, lng: pLng };
+                          if (markerRef.current) {
+                            markerRef.current.setPosition(pos);
+                          } else {
+                            markerRef.current = new window.google.maps.Marker({
+                              map: googleMapRef.current,
+                              position: pos,
+                            });
+                          }
+                          googleMapRef.current.panTo(pos);
+                          googleMapRef.current.setZoom(16);
+                        }
+                        toast.success(`「${name}」が見つかりました！`);
+                        setIsSearching(false);
+                      } else {
+                        // Failed to get details, try next random point
+                        searchRandomPlace();
+                      }
+                    });
+                  };
+                  getDetails();
+                } else {
+                  // No valid place found in this random spot
+                  searchRandomPlace();
+                }
+              } else {
+                // No results at all
+                searchRandomPlace();
+              }
+            });
+
+          } catch (err) {
+            console.error('Random destination search error:', err);
+            // If error, try again
+            searchRandomPlace();
+          }
         };
 
-        try {
-          // Use Geocoder to get address
-          if (window.google?.maps?.Geocoder) {
-            const geocoder = new window.google.maps.Geocoder();
-            const response = await geocoder.geocode({ location: { lat: randomLat, lng: randomLng } });
-
-            if (response.results[0]) {
-              const result = response.results[0];
-              const name = result.address_components.find(c => c.types.includes('point_of_interest'))?.long_name
-                || result.address_components.find(c => c.types.includes('premise'))?.long_name
-                || '指定された地点';
-
-              placeData = {
-                name: name,
-                address: result.formatted_address,
-                lat: randomLat,
-                lng: randomLng,
-              };
-              toast.success('ランダムな地点を選択しました！');
-            }
-          }
-        } catch (err) {
-          console.error('Random destination geocoding error:', err);
-          toast.success('ランダムな地点を選択しました（住所不明）');
-        } finally {
-          setSelectedPlace(placeData);
-          setSearchQuery(placeData.address);
-          setPredictions([]);
-
-          // Update map
-          if (googleMapRef.current) {
-            const pos = { lat: randomLat, lng: randomLng };
-            if (markerRef.current) {
-              markerRef.current.setPosition(pos);
-            } else {
-              markerRef.current = new window.google.maps.Marker({
-                map: googleMapRef.current,
-                position: pos,
-              });
-            }
-            googleMapRef.current.panTo(pos);
-            googleMapRef.current.setZoom(15);
-          }
-          setIsSearching(false);
-        }
+        searchRandomPlace();
       },
       (err) => {
         console.error('Geolocation error:', err);
