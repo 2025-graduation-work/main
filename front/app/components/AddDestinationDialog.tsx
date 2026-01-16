@@ -2,7 +2,7 @@
 
 import Script from 'next/script';
 import { useState, useEffect, useRef } from 'react';
-import { MapPin, Search, Calendar, Clock } from 'lucide-react';
+import { MapPin, Search, Calendar, Clock, Dices } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/app/components/ui/dialog';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -11,6 +11,13 @@ import { Badge } from '@/app/components/ui/badge';
 import { Card } from '@/app/components/ui/card';
 import { toast } from 'sonner';
 import { Destination } from '@/app/lib/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/ui/select";
 
 interface AddDestinationDialogProps {
   open: boolean;
@@ -51,6 +58,7 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
   const [placesLibLoaded, setPlacesLibLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [radius, setRadius] = useState<string>('3000');
   const sessionTokenRef = useRef<any>(null);
   const debounceRef = useRef<number | null>(null);
   const placesLibraryRef = useRef<any>(null);
@@ -63,14 +71,14 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
     if (!open) return;
 
     let mounted = true;
-    
+
     // Google Maps API が既に読み込まれているかチェック
     const checkAndLoadPlaces = async () => {
       if (!mounted) return;
 
       if (window.google?.maps?.importLibrary) {
         setMapsLoaded(true);
-        
+
         try {
           const lib: google.maps.PlacesLibrary = await window.google.maps.importLibrary('places');
           if (!mounted) return;
@@ -83,7 +91,7 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
               center: { lat: 35.681236, lng: 139.767125 },
               zoom: 14,
             });
-                setIsMapReady(true);
+            setIsMapReady(true);
           }
         } catch (err) {
           console.error('importLibrary(places) failed', err);
@@ -129,7 +137,7 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
           center: { lat: 35.681236, lng: 139.767125 },
           zoom: 14,
         });
-          setIsMapReady(true);
+        setIsMapReady(true);
 
         // reattach marker if selectedPlace exists
         if (selectedPlace) {
@@ -282,6 +290,90 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
     }
   };
 
+  const handleRandomDestination = () => {
+    if (!navigator.geolocation) {
+      toast.error('このブラウザは位置情報をサポートしていません');
+      return;
+    }
+
+    setIsSearching(true);
+    setError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude: lat, longitude: lng } = position.coords;
+        const radiusMetres = parseInt(radius);
+
+        // Generate random point within radius
+        const r = radiusMetres * Math.sqrt(Math.random());
+        const theta = Math.random() * 2 * Math.PI;
+
+        // Convert meters to lat/lng degrees (approximate)
+        // 1 deg lat = 111km, 1 deg lng = 111km * cos(lat)
+        const randomLat = lat + (r * Math.cos(theta)) / 111000;
+        const randomLng = lng + (r * Math.sin(theta)) / (111000 * Math.cos(lat * Math.PI / 180));
+
+        let placeData = {
+          name: '指定座標周辺',
+          address: `${randomLat.toFixed(6)}, ${randomLng.toFixed(6)}`,
+          lat: randomLat,
+          lng: randomLng,
+        };
+
+        try {
+          // Use Geocoder to get address
+          if (window.google?.maps?.Geocoder) {
+            const geocoder = new window.google.maps.Geocoder();
+            const response = await geocoder.geocode({ location: { lat: randomLat, lng: randomLng } });
+
+            if (response.results[0]) {
+              const result = response.results[0];
+              const name = result.address_components.find(c => c.types.includes('point_of_interest'))?.long_name
+                || result.address_components.find(c => c.types.includes('premise'))?.long_name
+                || '指定された地点';
+
+              placeData = {
+                name: name,
+                address: result.formatted_address,
+                lat: randomLat,
+                lng: randomLng,
+              };
+              toast.success('ランダムな地点を選択しました！');
+            }
+          }
+        } catch (err) {
+          console.error('Random destination geocoding error:', err);
+          toast.success('ランダムな地点を選択しました（住所不明）');
+        } finally {
+          setSelectedPlace(placeData);
+          setSearchQuery(placeData.address);
+          setPredictions([]);
+
+          // Update map
+          if (googleMapRef.current) {
+            const pos = { lat: randomLat, lng: randomLng };
+            if (markerRef.current) {
+              markerRef.current.setPosition(pos);
+            } else {
+              markerRef.current = new window.google.maps.Marker({
+                map: googleMapRef.current,
+                position: pos,
+              });
+            }
+            googleMapRef.current.panTo(pos);
+            googleMapRef.current.setZoom(15);
+          }
+          setIsSearching(false);
+        }
+      },
+      (err) => {
+        console.error('Geolocation error:', err);
+        toast.error('現在地の取得に失敗しました');
+        setIsSearching(false);
+      }
+    );
+  };
+
   const resetDialog = () => {
     setStep('search');
     setSearchQuery('');
@@ -289,7 +381,7 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
     setFrequency({ days: [], time: '10:00' });
     setPredictions([]);
     setError(null);
-    
+
     // マップとマーカーをクリーンアップ
     if (markerRef.current) {
       markerRef.current.setMap(null);
@@ -298,7 +390,7 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
     if (googleMapRef.current) {
       googleMapRef.current = null;
     }
-    
+
     // 状態をリセット
     setMapsLoaded(false);
     setPlacesLibLoaded(false);
@@ -351,185 +443,207 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
       />
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>
-            {step === 'search' ? '目的地を検索' : '頻度を設定'}
-          </DialogTitle>
-          <DialogDescription>
-            {step === 'search' 
-              ? 'Google Maps から場所を検索して目的地を選択してください' 
-              : '選択した目的地への訪問頻度を設定してください'}
-          </DialogDescription>
-        </DialogHeader>
+          <DialogHeader>
+            <DialogTitle>
+              {step === 'search' ? '目的地を検索' : '頻度を設定'}
+            </DialogTitle>
+            <DialogDescription>
+              {step === 'search'
+                ? 'Google Maps から場所を検索して目的地を選択してください'
+                : '選択した目的地への訪問頻度を設定してください'}
+            </DialogDescription>
+          </DialogHeader>
 
-        {step === 'search' ? (
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="add-search">場所を検索</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="add-search"
-                  type="text"
-                  placeholder="例: 新宿御苑"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && predictions.length && selectPrediction(predictions[0])}
-                  disabled={!placesLibLoaded}
-                />
+          {step === 'search' ? (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="add-search">場所を検索</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="add-search"
+                    type="text"
+                    placeholder="例: 新宿御苑"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && predictions.length && selectPrediction(predictions[0])}
+                    disabled={!placesLibLoaded}
+                  />
+                  <Button
+                    onClick={() => predictions.length && selectPrediction(predictions[0])}
+                    disabled={!searchQuery || isSearching || !placesLibLoaded}
+                    className="gap-2"
+                  >
+                    {isSearching ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        検索中
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-4 h-4" />
+                        検索
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-2 mt-2">
+                  <Select value={radius} onValueChange={setRadius}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="検索半径" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1000">1km以内</SelectItem>
+                      <SelectItem value="3000">3km以内</SelectItem>
+                      <SelectItem value="5000">5km以内</SelectItem>
+                      <SelectItem value="10000">10km以内</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    onClick={handleRandomDestination}
+                    disabled={!mapsLoaded || isSearching}
+                    className="flex-1 gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                    type="button"
+                  >
+                    <Dices className="w-4 h-4" />
+                    ランダムに選ぶ
+                  </Button>
+                </div>
+              </div>
+
+              {/* エラーメッセージ */}
+              {error && (
+                <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                  <p className="text-sm text-red-700">⚠️ {error}</p>
+                  <button
+                    onClick={() => setError(null)}
+                    className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
+                  >
+                    閉じる
+                  </button>
+                </div>
+              )}
+
+              {/* ローディング表示 */}
+              {searchQuery && isSearching && predictions.length === 0 && (
+                <div className="p-4 rounded-lg bg-blue-50 border border-blue-200 flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-sm text-blue-700">検索中...</p>
+                </div>
+              )}
+
+              {searchQuery && predictions.length > 0 && (
+                <div className="space-y-2">
+                  <Label>検索結果</Label>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {predictions.map((item, index) => (
+                      <button
+                        key={item.placeId || index}
+                        onClick={() => selectPrediction(item)}
+                        className={`w-full text-left p-4 rounded-lg border-2 transition-all ${selectedPlace?.address === item.description
+                          ? 'border-indigo-500 bg-indigo-50'
+                          : 'border-gray-200 bg-white hover:border-indigo-300'
+                          }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <MapPin className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-gray-900">{item.description}</p>
+                          </div>
+                          {selectedPlace?.address === item.description && (
+                            <Badge className="bg-indigo-600">選択中</Badge>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* マップコンテナ */}
+              <div className="relative">
+                <div className="w-full h-64 rounded-lg overflow-hidden border" ref={mapRef} />
+                {!isMapReady && (
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/70">
+                    <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+                    <p className="mt-2 text-sm text-gray-700">マップを読み込み中…</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => handleClose(false)}>
+                  キャンセル
+                </Button>
                 <Button
-                  onClick={() => predictions.length && selectPrediction(predictions[0])}
-                  disabled={!searchQuery || isSearching || !placesLibLoaded}
-                  className="gap-2"
+                  onClick={() => setStep('frequency')}
+                  disabled={!selectedPlace}
+                  className="bg-indigo-600 hover:bg-indigo-700"
                 >
-                  {isSearching ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      検索中
-                    </>
-                  ) : (
-                    <>
-                      <Search className="w-4 h-4" />
-                      検索
-                    </>
-                  )}
+                  次へ
                 </Button>
               </div>
             </div>
-
-            {/* エラーメッセージ */}
-            {error && (
-              <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-                <p className="text-sm text-red-700">⚠️ {error}</p>
-                <button
-                  onClick={() => setError(null)}
-                  className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
-                >
-                  閉じる
-                </button>
-              </div>
-            )}
-
-            {/* ローディング表示 */}
-            {searchQuery && isSearching && predictions.length === 0 && (
-              <div className="p-4 rounded-lg bg-blue-50 border border-blue-200 flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm text-blue-700">検索中...</p>
-              </div>
-            )}
-
-            {searchQuery && predictions.length > 0 && (
-              <div className="space-y-2">
-                <Label>検索結果</Label>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {predictions.map((item, index) => (
-                    <button
-                      key={item.placeId || index}
-                      onClick={() => selectPrediction(item)}
-                      className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                        selectedPlace?.address === item.description
-                          ? 'border-indigo-500 bg-indigo-50'
-                          : 'border-gray-200 bg-white hover:border-indigo-300'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <MapPin className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-gray-900">{item.description}</p>
-                        </div>
-                        {selectedPlace?.address === item.description && (
-                          <Badge className="bg-indigo-600">選択中</Badge>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* マップコンテナ */}
-            <div className="relative">
-              <div className="w-full h-64 rounded-lg overflow-hidden border" ref={mapRef} />
-              {!isMapReady && (
-                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/70">
-                  <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" aria-hidden="true" />
-                  <p className="mt-2 text-sm text-gray-700">マップを読み込み中…</p>
-                </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              {selectedPlace && (
+                <Card className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200">
+                  <p className="text-sm text-gray-600 mb-1">追加する目的地</p>
+                  <p className="text-gray-900">{selectedPlace.name}</p>
+                </Card>
               )}
-            </div>
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => handleClose(false)}>
-                キャンセル
-              </Button>
-              <Button
-                onClick={() => setStep('frequency')}
-                disabled={!selectedPlace}
-                className="bg-indigo-600 hover:bg-indigo-700"
-              >
-                次へ
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4 py-4">
-            {selectedPlace && (
-              <Card className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200">
-                <p className="text-sm text-gray-600 mb-1">追加する目的地</p>
-                <p className="text-gray-900">{selectedPlace.name}</p>
-              </Card>
-            )}
-
-            <div className="space-y-3">
-              <Label>曜日を選択</Label>
-              <div className="grid grid-cols-7 gap-2">
-                {DAYS.map((day) => {
-                  const isSelected = frequency.days.includes(day.value);
-                  return (
-                    <button
-                      key={day.value}
-                      onClick={() => toggleDay(day.value)}
-                      className={`aspect-square rounded-lg border-2 transition-all ${
-                        isSelected
+              <div className="space-y-3">
+                <Label>曜日を選択</Label>
+                <div className="grid grid-cols-7 gap-2">
+                  {DAYS.map((day) => {
+                    const isSelected = frequency.days.includes(day.value);
+                    return (
+                      <button
+                        key={day.value}
+                        onClick={() => toggleDay(day.value)}
+                        className={`aspect-square rounded-lg border-2 transition-all ${isSelected
                           ? 'border-indigo-500 bg-indigo-500 text-white'
                           : 'border-gray-300 bg-white text-gray-700 hover:border-indigo-300'
-                      }`}
-                    >
-                      <span className="text-sm">{day.label}</span>
-                    </button>
-                  );
-                })}
+                          }`}
+                      >
+                        <span className="text-sm">{day.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="add-time">時刻を選択</Label>
+                <div className="flex items-center gap-3">
+                  <Clock className="w-5 h-5 text-gray-500" />
+                  <Input
+                    id="add-time"
+                    type="time"
+                    value={frequency.time}
+                    onChange={(e) => setFrequency({ ...frequency, time: e.target.value })}
+                    className="max-w-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-between gap-2 pt-4">
+                <Button variant="outline" onClick={() => setStep('search')}>
+                  戻る
+                </Button>
+                <Button
+                  onClick={handleAdd}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  追加
+                </Button>
               </div>
             </div>
-
-            <div className="space-y-3">
-              <Label htmlFor="add-time">時刻を選択</Label>
-              <div className="flex items-center gap-3">
-                <Clock className="w-5 h-5 text-gray-500" />
-                <Input
-                  id="add-time"
-                  type="time"
-                  value={frequency.time}
-                  onChange={(e) => setFrequency({ ...frequency, time: e.target.value })}
-                  className="max-w-xs"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-between gap-2 pt-4">
-              <Button variant="outline" onClick={() => setStep('search')}>
-                戻る
-              </Button>
-              <Button
-                onClick={handleAdd}
-                className="bg-indigo-600 hover:bg-indigo-700"
-              >
-                追加
-              </Button>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
