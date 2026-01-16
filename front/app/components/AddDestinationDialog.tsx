@@ -58,7 +58,7 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
   const [placesLibLoaded, setPlacesLibLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
-  const [radius, setRadius] = useState<string>('3000');
+  const [radius, setRadius] = useState<string>('500');
   const sessionTokenRef = useRef<any>(null);
   const debounceRef = useRef<number | null>(null);
   const placesLibraryRef = useRef<any>(null);
@@ -550,6 +550,7 @@ export function AddDestinationDialog({ open, onOpenChange, onAdd }: AddDestinati
                       <SelectValue placeholder="検索半径" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="500">500m以内</SelectItem>
                       <SelectItem value="1000">1km以内</SelectItem>
                       <SelectItem value="3000">3km以内</SelectItem>
                       <SelectItem value="5000">5km以内</SelectItem>
