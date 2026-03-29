@@ -1,7 +1,18 @@
 import React, { useMemo, useState } from 'react';
+import { DayPicker } from 'react-day-picker';
+import 'react-day-picker/dist/style.css';
+
 import { useAtomValue } from 'jotai';
-import { visitHistoryAtom, calculateCompletionRate, userDataAtom } from '@/app/lib/store';
+import { visitHistoryAtom } from '@/app/lib/store';
+import { userDataAtom } from '@/app/lib/store';
 import { Visit } from '@/app/lib/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/app/components/ui/select';
 import {
   startOfWeek,
   endOfWeek,
@@ -12,12 +23,6 @@ import {
   subDays,
   isSameDay,
 } from 'date-fns';
-
-import { HistoryHeader } from './history/HistoryHeader';
-import { HistoryCalendar } from './history/HistoryCalendar';
-import { HistoryList } from './history/HistoryList';
-import { HistoryStats } from './history/HistoryStats';
-import { DestinationDebugStats } from './history/DestinationDebugStats';
 
 type Period = 'week' | 'month' | 'all';
 
@@ -104,82 +109,110 @@ export function TaskHistory() {
     let expectedDate = hasToday ? today : yesterday;
 
     for (const d of uniqueDates) {
-      // If the date is newer than expected (e.g. we are looking for yesterday but this date is today, and we started expecting yesterday), skip.
-      // But based on logic, if hasToday is true, we start with today. If not, we start with yesterday.
-      // Since uniqueDates is sorted descending, we should just match.
       if (isSameDay(d, expectedDate)) {
         currentStreak++;
         expectedDate = subDays(expectedDate, 1);
       } else if (d < expectedDate) {
-        // Gap found
         break;
       }
     }
     return currentStreak;
   }, [parsedVisits]);
 
-  const perDestinationRates = useMemo(() => {
-    return destinations.map((d) => {
-      const target = d.frequency?.days?.length > 0 ? d.frequency.days.length : 1;
-      const result = calculateCompletionRate(parsedVisits, d.id, target, {
-        period,
-        frequencyDays: d.frequency?.days ?? [],
-        referenceDate: new Date(),
-      });
-      return { id: d.id, name: d.name, ...result };
-    });
-  }, [destinations, parsedVisits, period]);
-
-  const overallRate = useMemo(() => {
-    if (perDestinationRates.length === 0) return 0;
-    if (selectedDestination !== 'all') {
-      const item = perDestinationRates.find((p) => p.id === selectedDestination);
-      return item ? Math.round(item.rate * 10) / 10 : 0;
-    }
-    // Compute overall rate as total completed / total target across destinations
-    const totalCompleted = perDestinationRates.reduce((s, p) => s + (p.completed ?? 0), 0);
-    const totalTarget = perDestinationRates.reduce((s, p) => s + (p.target ?? 0), 0);
-    if (totalTarget <= 0) return 0;
-    const rate = (totalCompleted / totalTarget) * 100;
-    return Math.round(Math.min(rate, 100) * 10) / 10;
-  }, [perDestinationRates, selectedDestination]);
-
   return (
     <div className="w-full">
       <h2 className="text-lg sm:text-xl font-bold mb-3">習慣化の記録</h2>
 
-      <HistoryHeader
-        period={period}
-        setPeriod={setPeriod}
-        selectedDestination={selectedDestination}
-        setSelectedDestination={setSelectedDestination}
-        destinations={destinations}
-        overallRate={overallRate}
-      />
+        <section className="mb-4 overflow-hidden">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 w-full sm:w-auto sm:flex-row sm:space-x-2 sm:flex-shrink-0">
+              <Select value={selectedDestination} onValueChange={(value) => setSelectedDestination(value as any)}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="全ての目的地" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全ての目的地</SelectItem>
+                  {destinations.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-      <HistoryCalendar
-        selectedDate={selectedDate}
-        setSelectedDate={setSelectedDate}
-        visitedDates={visitedDates}
-        filteredVisits={filteredVisits}
-        destinations={destinations}
-      />
+              <Select value={period} onValueChange={(value) => setPeriod(value as Period)}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="期間を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="week">今週</SelectItem>
+                  <SelectItem value="month">今月</SelectItem>
+                  <SelectItem value="all">全期間</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </section>
 
-      <HistoryList
-        pageVisits={pageVisits}
-        filteredVisitsCount={filteredVisits.length}
-        destinations={destinations}
-        setPage={setPage}
-      />
+      <section className="mb-6 overflow-x-auto">
+        <h3 className="font-semibold mb-2 text-sm sm:text-base">📅 カレンダー</h3>
+        <div className="flex justify-center">
+          <DayPicker
+            mode="single"
+            selected={selectedDate}
+            onSelect={(d) => setSelectedDate(d ?? undefined)}
+            modifiers={{ visited: visitedDates }}
+            modifiersClassNames={{ visited: 'bg-green-200' }}
+          />
+        </div>
+        {selectedDate && (
+          <div className="mt-3 p-3 border rounded bg-white">
+            <h4 className="font-medium text-sm sm:text-base">{selectedDate.toLocaleDateString('ja-JP')}</h4>
+            <ul className="mt-2 space-y-2">
+              {filteredVisits.map((v) => (
+                <li key={v.id} className="border-l-4 border-blue-500 pl-2 text-sm break-words">
+                  <p className="font-semibold truncate">{destinations.find((d) => d.id === v.destinationId)?.name ?? v.destinationId} - {new Date(v.visitedAt).toLocaleTimeString('ja-JP')}</p>
+                  {v.note && <p className="text-xs text-gray-600 line-clamp-2">{v.note}</p>}
+                </li>
+              ))}
+            </ul>
+            <button onClick={() => setSelectedDate(undefined)} className="mt-2 text-xs sm:text-sm text-blue-600">日付選択を解除</button>
+          </div>
+        )}
+      </section>
 
-      <DestinationDebugStats perDestinationRates={perDestinationRates} />
+      <section className="mb-6">
+        <h3 className="font-semibold mb-2 text-sm sm:text-base">📋 訪問履歴一覧</h3>
+        <div className="border p-2 sm:p-3 rounded bg-white">
+          {pageVisits.length === 0 ? (
+            <p className="text-gray-500 text-sm">訪問履歴がありません</p>
+          ) : (
+            <ul className="space-y-2 sm:space-y-3">
+              {pageVisits.map((v) => (
+                <li key={v.id} className="border-l-4 border-green-500 pl-2 text-sm break-words">
+                  <p className="font-semibold truncate">{destinations.find((d) => d.id === v.destinationId)?.name ?? v.destinationId} - {new Date(v.visitedAt).toLocaleString('ja-JP')}</p>
+                  {v.note && <p className="text-xs text-gray-600 line-clamp-2">{v.note}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
 
-      <HistoryStats
-        totalVisits={totalVisits}
-        mostVisitedName={mostVisitedName}
-        mostVisitedCount={mostVisited.count}
-        streak={streak}
-      />
+          {pageVisits.length < filteredVisits.length && (
+            <div className="mt-3">
+              <button onClick={() => setPage((p) => p + 1)} className="px-3 py-1 bg-gray-100 border rounded text-sm hover:bg-gray-200">さらに読み込む</button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section>
+        <h3 className="font-semibold mb-2 text-sm sm:text-base">📈 統計</h3>
+        <div className="border p-2 sm:p-3 rounded bg-white space-y-2 text-sm">
+          <p>総訪問回数: <strong>{totalVisits}</strong></p>
+          <p>最も訪問した目的地: <strong>{mostVisitedName}</strong>（{mostVisited.count}回）</p>
+          <p>連続訪問日数（ストリーク）: <strong>{streak}</strong>日</p>
+        </div>
+      </section>
     </div>
   );
 }
